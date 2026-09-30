@@ -36,18 +36,16 @@ jobs:
           cp app.json PriceWatchNative/app.json
           cp -R PriceWatchNative/android android
 
-          # Use the real Price Watch Android identity everywhere in the generated native project.
           find android/app/src/main -type f -print0 | xargs -0 sed -i 's/PriceWatchNative/PriceWatch/g; s/com\.pricewatchnative/com.pricewatch.app/g; s/com\.nativeshell/com.pricewatch.app/g'
 
-          # Ensure Gradle generates BuildConfig for React Native 0.81.
           python3 - <<'PY'
           from pathlib import Path
           p = Path('android/app/build.gradle')
           s = p.read_text()
           if 'buildFeatures {' not in s:
-              s = s.replace('android {', 'android {\\n    buildFeatures {\\n        buildConfig true\\n    }', 1)
+              s = s.replace('android {', 'android {\n    buildFeatures {\n        buildConfig true\n    }', 1)
           elif 'buildConfig true' not in s:
-              s = s.replace('buildFeatures {', 'buildFeatures {\\n        buildConfig true', 1)
+              s = s.replace('buildFeatures {', 'buildFeatures {\n        buildConfig true', 1)
           s = s.replace('namespace "com.pricewatchnative"', 'namespace "com.pricewatch.app"')
           s = s.replace("namespace 'com.pricewatchnative'", "namespace 'com.pricewatch.app'")
           s = s.replace('applicationId "com.pricewatchnative"', 'applicationId "com.pricewatch.app"')
@@ -55,7 +53,6 @@ jobs:
           p.write_text(s)
           PY
 
-          # Create a deliberate Price Watch launcher icon instead of the React Native template icon.
           mkdir -p android/app/src/main/res/drawable
           cat > android/app/src/main/res/drawable/ic_price_watch.xml <<'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
