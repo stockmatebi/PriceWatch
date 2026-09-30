@@ -36,8 +36,8 @@ jobs:
           cp app.json NativeShell/app.json
           cp -R NativeShell/android android
 
-          find android/app/src/main/java -type f -print0 | xargs -0 sed -i 's/com\.nativeshell/com.pricewatch.app/g'
-          find android/app/src/main -type f -print0 | xargs -0 sed -i 's/com\.nativeshell/com.pricewatch.app/g'
+          # Align the generated native shell with the actual Price Watch component/package.
+          find android/app/src/main -type f -print0 | xargs -0 sed -i 's/NativeShell/PriceWatch/g; s/com\.nativeshell/com.pricewatch.app/g'
           mkdir -p android/app/src/main/java/com/pricewatch/app
 
           if [ -d android/app/src/main/java/com/nativeshell ]; then
