@@ -1,6 +1,6 @@
 # Price Watch
 
-Standalone competitor price and promotion tracker.
+Standalone competitor price and promotion tracker for local building-material suppliers.
 
 ## Suppliers
 - Cashbuild Howick
@@ -14,10 +14,17 @@ Standalone competitor price and promotion tracker.
 - NPC Original Black 50 kg
 - Double Roman Roof Tile
 
-## Stack
-Expo SDK 57 / React Native 0.86, Supabase, Expo Notifications and EAS Build.
+## Architecture
+- React Native + Expo native modules
+- Android native project generated with Expo Prebuild
+- Release APK built directly on GitHub Actions with Gradle
+- Supabase for authentication and Price Watch data
+- Supabase Edge Function for server-side price monitoring
+- Supabase Cron for three daily monitoring runs
 
-The app reads the isolated pw_* tables in the existing Supabase project. Price collection, social monitoring and AI/OCR processing are server-side responsibilities; no OpenAI secret belongs in the mobile app.
+**No EAS cloud build is required for the Android APK.**
 
-## APK
-The EAS preview profile is configured to produce a directly installable Android APK. Before the first non-interactive build, replace the placeholder EAS project ID in app.json and provide an Expo/EAS token to the build environment.
+## Monitoring
+The server-side monitor is designed so supplier/source failures do not stop other suppliers from being checked. Prices are recorded only when a source produces a recognizable currency value; failed or unverified reads are not treated as prices.
+
+Social-media monitoring uses source adapters and original-post URLs where public access is available. The app must never put private API keys or AI provider secrets into the APK.
