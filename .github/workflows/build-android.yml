@@ -81,6 +81,24 @@ jobs:
         working-directory: android
         run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
+      - name: Android emulator smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          script: |
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            adb shell am force-stop com.pricewatch.app
+            adb shell monkey -p com.pricewatch.app 1
+            sleep 8
+            if ! adb shell pidof com.pricewatch.app >/dev/null; then
+              echo "Price Watch failed to stay running"
+              adb logcat -d -t 400 | grep -E "AndroidRuntime|FATAL EXCEPTION|ReactNative|Notifee|pricewatch" || true
+              exit 1
+            fi
+            echo "Price Watch launch smoke test passed"
+
       - name: Stage APK
         run: |
           mkdir -p release-apk
