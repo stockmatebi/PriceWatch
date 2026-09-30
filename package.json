@@ -1,17 +1,22 @@
 {
-  "name": "price-watch",
-  "version": "1.0.0",
-  "private": true,
-  "main": "node_modules/expo/AppEntry.js",
-  "scripts": {"start":"expo start","android":"expo run:android","ios":"expo run:ios","web":"expo start --web","check":"expo-doctor"},
-  "dependencies": {
+  "name":"price-watch",
+  "version":"1.0.0",
+  "private":true,
+  "main":"node_modules/expo/AppEntry.js",
+  "scripts":{
+    "start":"expo start",
+    "android":"expo run:android",
+    "build:android":"npx expo prebuild --platform android --no-install --clean && cd android && ./gradlew :app:assembleRelease"
+  },
+  "dependencies":{
+    "expo":"~54.0.0",
+    "expo-constants":"~17.0.8",
+    "expo-notifications":"~0.32.17",
+    "expo-status-bar":"~2.5.0",
+    "expo-web-browser":"~14.2.0",
     "@supabase/supabase-js":"2.57.4",
-    "expo":"57.0.0",
-    "expo-constants":"19.0.0",
-    "expo-notifications":"0.31.21",
-    "expo-status-bar":"3.0.8",
-    "expo-web-browser":"16.0.9",
-    "react":"19.2.3",
-    "react-native":"0.86.0"
-  }
+    "react":"19.1.0",
+    "react-native":"0.81.5"
+  },
+  "devDependencies":{"@babel/core":"^7.25.2"}
 }
