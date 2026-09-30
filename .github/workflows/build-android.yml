@@ -3,22 +3,30 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+
 jobs:
   build:
     name: Build Price Watch Standalone APK on GitHub
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
-        with: {node-version: 22}
+        with:
+          node-version: 22
+
       - uses: actions/setup-java@v4
-        with: {distribution: temurin, java-version: '17'}
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Install dependencies
         run: npm install
+
       - name: Generate Android shell
         run: |
-          rm -rf NativeShell
-          npx @react-native-community/cli@20.0.1 init NativeShell --version 0.81.5 --skip-install --skip-git
+          rm -rf NativeShell android
+          npx @react-native-community/cli@20.0.1 init NativeShell --version 0.81.5 --skip-install
           rm -rf NativeShell/src NativeShell/App.tsx NativeShell/App.js NativeShell/index.js
           cp -R src NativeShell/src
           cp App.js NativeShell/App.js
@@ -28,30 +36,34 @@ jobs:
           cp app.json NativeShell/app.json
           cp -R assets NativeShell/assets
           cp -R NativeShell/android android
-          sed -i 's/com\.nativeshell/com.pricewatch.app/g' android/app/build.gradle android/app/src/main/AndroidManifest.xml android/app/src/main/java/com/nativeshell/MainActivity.kt android/app/src/main/java/com/nativeshell/MainApplication.kt 2>/dev/null || true
-          find android/app/src/main/java/com/nativeshell -type f -print0 2>/dev/null | xargs -0 -r sed -i 's/com\.nativeshell/com.pricewatch.app/g'
+
+          find android/app/src/main/java -type f -print0 | xargs -0 sed -i 's/com\.nativeshell/com.pricewatch.app/g'
+          find android/app/src/main -type f -print0 | xargs -0 sed -i 's/com\.nativeshell/com.pricewatch.app/g'
           mkdir -p android/app/src/main/java/com/pricewatch/app
-          if [ -d android/app/src/main/java/com/nativeshell ]; then cp android/app/src/main/java/com/nativeshell/*.kt android/app/src/main/java/com/pricewatch/app/ 2>/dev/null || true; fi
-          rm -rf android/app/src/main/java/com/nativeshell
-      - name: Install app dependencies in native shell
-        run: |
-          cp package.json NativeShell/package.json
-          cd NativeShell
-          npm install
+
+          if [ -d android/app/src/main/java/com/nativeshell ]; then
+            cp -R android/app/src/main/java/com/nativeshell/. android/app/src/main/java/com/pricewatch/app/
+            rm -rf android/app/src/main/java/com/nativeshell
+          fi
+
       - name: Generate notification tone
         run: python3 scripts/generate_notification_tone.py
+
       - name: Copy notification tone into Android resources
         run: |
           mkdir -p android/app/src/main/res/raw
           cp assets/price_alert.wav android/app/src/main/res/raw/price_alert.wav
+
       - name: Build release APK
         working-directory: android
         run: gradle :app:assembleRelease --no-daemon --stacktrace
+
       - name: Stage APK
         run: |
           mkdir -p release-apk
           cp android/app/build/outputs/apk/release/app-release.apk release-apk/PriceWatch-latest.apk
           test -s release-apk/PriceWatch-latest.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: PriceWatch-Standalone-APK
