@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Generate unique notification tone
+        run: python3 scripts/generate_notification_tone.py
+
       - name: Generate Android native project
         run: npx expo prebuild --platform android --no-install --clean
 
