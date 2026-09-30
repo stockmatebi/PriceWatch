@@ -1,13 +1,25 @@
 {
-  "expo":{
-    "name":"Price Watch",
-    "slug":"price-watch",
-    "version":"1.0.0",
-    "orientation":"portrait",
-    "userInterfaceStyle":"dark",
-    "newArchEnabled":false,
-    "scheme":"pricewatch",
-    "android":{"package":"com.pricewatch.app","versionCode":1},
-    "plugins":[["expo-notifications",{"color":"#F5BE28","defaultChannel":"price-alerts"}]]
+  "expo": {
+    "name": "Price Watch",
+    "slug": "price-watch",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
+    "scheme": "pricewatch",
+    "android": {
+      "package": "com.pricewatch.app",
+      "versionCode": 1
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#F5BE28",
+          "defaultChannel": "price-alerts",
+          "sounds": ["./assets/price_alert.wav"]
+        }
+      ]
+    ]
   }
 }
