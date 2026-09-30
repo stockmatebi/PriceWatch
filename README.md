@@ -20,7 +20,7 @@ Standalone competitor price and promotion tracker for local building-material su
 - Release APK built directly on GitHub Actions with Gradle
 - Supabase for authentication and Price Watch data
 - Supabase Edge Function for server-side price monitoring
-- Supabase Cron for three daily monitoring runs
+- Supabase Cron for six daily monitoring runs at 08:00, 10:00, 12:00, 14:00, 16:00 and 18:00 South Africa time
 
 **No EAS cloud build is required for the Android APK.**
 
