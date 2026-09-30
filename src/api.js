@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 
 export async function getDashboardData(){
- const [{data:suppliers,error:a},{data:products,error:b},{data:snapshots,error:c},{data:promotions,error:d}]=await Promise.all([
+ const [{data:suppliers,error:a},{data:products,error:b},{data:snapshots,error:c},{data:promotions,error:d},{data:checkRuns,error:e}]=await Promise.all([
   supabase.from('pw_suppliers').select('*').eq('active',true).order('name'),
   supabase.from('pw_products').select('*').eq('active',true).order('name'),
   supabase.from('pw_price_snapshots').select('*').order('checked_at',{ascending:false}).limit(300),
