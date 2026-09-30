@@ -28,6 +28,11 @@ jobs:
           cp app.json NativeShell/app.json
           cp -R assets NativeShell/assets
           cp -R NativeShell/android android
+          sed -i 's/com\.nativeshell/com.pricewatch.app/g' android/app/build.gradle android/app/src/main/AndroidManifest.xml android/app/src/main/java/com/nativeshell/MainActivity.kt android/app/src/main/java/com/nativeshell/MainApplication.kt 2>/dev/null || true
+          find android/app/src/main/java/com/nativeshell -type f -print0 2>/dev/null | xargs -0 -r sed -i 's/com\.nativeshell/com.pricewatch.app/g'
+          mkdir -p android/app/src/main/java/com/pricewatch/app
+          if [ -d android/app/src/main/java/com/nativeshell ]; then cp android/app/src/main/java/com/nativeshell/*.kt android/app/src/main/java/com/pricewatch/app/ 2>/dev/null || true; fi
+          rm -rf android/app/src/main/java/com/nativeshell
       - name: Install app dependencies in native shell
         run: |
           cp package.json NativeShell/package.json
