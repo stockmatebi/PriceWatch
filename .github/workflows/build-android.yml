@@ -45,6 +45,18 @@ jobs:
             rm -rf android/app/src/main/java/com/nativeshell
           fi
 
+          # React Native 0.81's generated Kotlin references BuildConfig; explicitly enable its generation.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/build.gradle')
+          s = p.read_text()
+          if 'buildFeatures {' not in s:
+              s = s.replace('android {', 'android {\n    buildFeatures {\n        buildConfig true\n    }', 1)
+          elif 'buildConfig true' not in s:
+              s = s.replace('buildFeatures {', 'buildFeatures {\n        buildConfig true', 1)
+          p.write_text(s)
+          PY
+
       - name: Generate notification tone
         run: python3 scripts/generate_notification_tone.py
 
