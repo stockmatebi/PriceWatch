@@ -5,10 +5,11 @@ export async function getDashboardData(){
   supabase.from('pw_suppliers').select('*').eq('active',true).order('name'),
   supabase.from('pw_products').select('*').eq('active',true).order('name'),
   supabase.from('pw_price_snapshots').select('*').order('checked_at',{ascending:false}).limit(300),
-  supabase.from('pw_promotions').select('*, pw_suppliers(name)').eq('is_promotion',true).order('detected_at',{ascending:false}).limit(20)
+  supabase.from('pw_promotions').select('*, pw_suppliers(name)').eq('is_promotion',true).order('detected_at',{ascending:false}).limit(20),
+  supabase.from('pw_check_runs').select('*').order('started_at',{ascending:false}).limit(10)
  ]);
- const error=a||b||c||d;if(error)throw error;
- return{suppliers:suppliers||[],products:products||[],snapshots:snapshots||[],promotions:promotions||[]};
+ const error=a||b||c||d||e;if(error)throw error;
+ return{suppliers:suppliers||[],products:products||[],snapshots:snapshots||[],promotions:promotions||[],checkRuns:checkRuns||[]};
 }
 export function buildLatestPrices(suppliers,products,snapshots){
  const sm=Object.fromEntries(suppliers.map(x=>[x.id,x])),pm=Object.fromEntries(products.map(x=>[x.id,x])),groups=new Map();
