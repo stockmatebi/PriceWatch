@@ -5,13 +5,9 @@
     "version":"1.0.0",
     "orientation":"portrait",
     "userInterfaceStyle":"dark",
+    "newArchEnabled":false,
     "scheme":"pricewatch",
-    "android":{"package":"com.pricewatch.app"},
-    "plugins":[["expo-notifications",{"color":"#F5BE28","defaultChannel":"price-alerts"}]],
-    "extra":{
-      "supabaseUrl":"https://iymwzyxlvtyidebxdzyw.supabase.co",
-      "supabasePublishableKey":"sb_publishable_7_ms0zNP3-ZEX8tDJtyvWw_jqTMs0AP",
-      "eas":{"projectId":"REPLACE_WITH_EAS_PROJECT_ID"}
-    }
+    "android":{"package":"com.pricewatch.app","versionCode":1},
+    "plugins":[["expo-notifications",{"color":"#F5BE28","defaultChannel":"price-alerts"}]]
   }
 }
