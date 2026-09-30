@@ -45,6 +45,9 @@ jobs:
             rm -rf android/app/src/main/java/com/nativeshell
           fi
 
+          # Keep the generated Android namespace/application ID aligned with the Price Watch package.
+          sed -i 's/com\.nativeshell/com.pricewatch.app/g' android/app/build.gradle
+
           # React Native 0.81's generated Kotlin references BuildConfig; explicitly enable its generation.
           python3 - <<'PY'
           from pathlib import Path
