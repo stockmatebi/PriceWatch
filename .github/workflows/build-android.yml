@@ -92,11 +92,11 @@ jobs:
             adb shell am force-stop com.pricewatch.app
             adb shell monkey -p com.pricewatch.app 1
             sleep 8
-            if ! adb shell pidof com.pricewatch.app >/dev/null; then
+            adb shell pidof com.pricewatch.app >/dev/null || {
               echo "Price Watch failed to stay running"
               adb logcat -d -t 400 | grep -E "AndroidRuntime|FATAL EXCEPTION|ReactNative|Notifee|pricewatch" || true
               exit 1
-            fi
+            }
             echo "Price Watch launch smoke test passed"
 
       - name: Stage APK
