@@ -1,57 +1,54 @@
 name: Build Price Watch APK
-
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-
+    branches: [main]
 jobs:
   build:
     name: Build Price Watch Standalone APK on GitHub
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '17'}
       - name: Install dependencies
         run: npm install
-
-      - name: Generate unique notification tone
-        run: python3 scripts/generate_notification_tone.py
-
-      - name: Generate Android native project
-        run: npx expo prebuild --platform android --no-install --clean
-
-      - name: Build standalone release APK
-        working-directory: android
+      - name: Generate Android shell
         run: |
-          chmod +x gradlew
-          ./gradlew :app:assembleRelease --no-daemon --stacktrace
-
+          rm -rf NativeShell
+          npx @react-native-community/cli@20.0.1 init NativeShell --version 0.81.5 --skip-install --skip-git
+          rm -rf NativeShell/src NativeShell/App.tsx NativeShell/App.js NativeShell/index.js
+          cp -R src NativeShell/src
+          cp App.js NativeShell/App.js
+          cp index.js NativeShell/index.js
+          cp babel.config.js NativeShell/babel.config.js
+          cp metro.config.js NativeShell/metro.config.js
+          cp app.json NativeShell/app.json
+          cp -R assets NativeShell/assets
+          cp -R NativeShell/android android
+      - name: Install app dependencies in native shell
+        run: |
+          cp package.json NativeShell/package.json
+          cd NativeShell
+          npm install
+      - name: Generate notification tone
+        run: python3 scripts/generate_notification_tone.py
+      - name: Copy notification tone into Android resources
+        run: |
+          mkdir -p android/app/src/main/res/raw
+          cp assets/price_alert.wav android/app/src/main/res/raw/price_alert.wav
+      - name: Build release APK
+        working-directory: android
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
       - name: Stage APK
         run: |
           mkdir -p release-apk
           cp android/app/build/outputs/apk/release/app-release.apk release-apk/PriceWatch-latest.apk
           test -s release-apk/PriceWatch-latest.apk
-          ls -lh release-apk/PriceWatch-latest.apk
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: PriceWatch-Standalone-APK
           path: release-apk/PriceWatch-latest.apk
-          if-no-files-found: error
           retention-days: 30
