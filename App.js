@@ -16,6 +16,14 @@ import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-contex
 import {supabase} from './lib/supabase';
 
 const money = value => (value == null ? '—' : `R${Number(value).toFixed(2)}`);
+const supplierProfiles = {
+  'Cashbuild Howick': {description: 'Local Cashbuild branch supplying building materials, cement, timber, hardware, plumbing and tools.', phone: '033 330 3155', email: 'smhowick@cashbuild.co.za', website: 'https://www.cashbuild.co.za/', socials: [{label: 'Facebook', url: 'https://www.facebook.com/CashbuildHowick/'}]},
+  'Midlands Mica Howick': {description: 'Howick Mica hardware store serving DIY, home improvement, building, garden and related needs.', phone: '033 330 5877', alternatePhone: '086 688 4317', website: 'https://mica.co.za/store-location/kwazulu-natal/midlands-mica/', socials: [{label: 'Facebook', url: 'https://www.facebook.com/p/Midlands-Mica-61557840789993/'}, {label: 'Instagram', url: 'https://www.instagram.com/micamidlands'}]},
+  'Midmar Building Supplies': {description: 'Building materials trade depot supplying blocks, bricks, retainers, pavers, sand, stone, wet-trade materials, hardware and DIY.', phone: '033 320 1143', alternatePhone: '081 491 8913', email: 'mbs@midmargroup.co.za', website: 'https://midmarbuildingsupplies.co.za/', socials: [{label: 'Facebook', url: 'https://www.facebook.com/midmarbuildingsupplies/'}, {label: 'Instagram', url: 'https://www.instagram.com/midmar_building_supplies_'}]},
+  'Midmar Tile & Hardware': {description: 'Howick tile and hardware supplier offering tiles, tile accessories and related hardware products.', phone: '033 330 7617', website: 'https://g.page/midmar-tile-hardware', socials: [{label: 'Facebook', url: 'https://www.facebook.com/p/Midmar-Tile-and-Hardware-61570760241608/'}, {label: 'Instagram', url: 'https://www.instagram.com/midmar_tile_and_hardware2003'}]},
+  'Timber Solutions': {description: 'Howick timber outlet specialising in structural and industrial timber, treated poles, hardware, garden decor, doors, shelving, decking and mouldings.', phone: '033 330 3569', website: 'https://www.timber-solutions.co.za/', socials: [{label: 'Facebook', url: 'https://www.facebook.com/timbersolutions1/'}, {label: 'Instagram', url: 'https://www.instagram.com/timbersolutions'}]},
+};
+
 
 const productImageResource = product => {
   const name = String(product?.name || '').toLowerCase();
@@ -89,6 +97,7 @@ function PriceWatchApp() {
   const [compareProductId, setCompareProductId] = useState(null);
   const [historyProductId, setHistoryProductId] = useState(null);
   const [historySupplierId, setHistorySupplierId] = useState(null);
+  const [supplierDetailId, setSupplierDetailId] = useState(null);
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
   const [snapshots, setSnapshots] = useState([]);
@@ -443,14 +452,6 @@ snapshotResult.error ||
           </TouchableOpacity>
         </View>
 
-        <View style={styles.statusCard}>
-          <View style={styles.statusDot} />
-          <View style={{flex: 1}}>
-            <Text style={styles.statusTitle}>Supplier price overview</Text>
-            <Text style={styles.statusText}>Cashbuild is monitored automatically. Other suppliers can show manual or promotion prices.</Text>
-          </View>
-        </View>
-
         <View style={styles.statsRow}>
           <StatCard value={products.length} label="Products" />
           <StatCard value={suppliers.length} label="Suppliers" />
@@ -489,25 +490,6 @@ snapshotResult.error ||
             </View>
           </View>
         ))}
-
-        <Text style={styles.sectionTitle}>Supplier monitoring status</Text>
-        {suppliers.map(supplier => {
-          const results = Array.isArray(latestRun?.results) ? latestRun.results.filter(result => result.supplier === supplier.name) : [];
-          const hasError = results.some(result => result.status === 'error');
-          const hasPrice = results.some(result => ['updated', 'price_changed', 'initial_price', 'unchanged'].includes(result.status));
-          const hasNotFound = results.some(result => result.status === 'price_not_found');
-          const status = hasError ? 'ERROR' : hasPrice ? 'PRICE FOUND' : hasNotFound ? 'CHECKED · NO PRICE FOUND' : 'SOCIAL / MANUAL';
-          const statusStyle = hasError ? styles.monitorError : hasPrice ? styles.monitorGood : styles.monitorWarn;
-          return (
-            <View key={supplier.id} style={styles.monitorRow}>
-              <View style={{flex: 1}}>
-                <Text style={styles.supplierName}>{supplier.name}</Text>
-                <Text style={styles.checked}>{results.length ? timeLabel(latestRun?.finished_at) : 'Not checked'}</Text>
-              </View>
-              <Text style={statusStyle}>{status}</Text>
-            </View>
-          );
-        })}
 
         <Text style={styles.sectionTitle}>Recent price changes</Text>
         {changed.length === 0 ? (
@@ -768,7 +750,7 @@ snapshotResult.error ||
     return (
       <>
         <TouchableOpacity style={styles.compareBackButton} onPress={() => setHistoryProductId(null)}>
-          <Text style={styles.compareBackText}>‹ BACK TO PRODUCTS</Text>
+          <Text style={styles.compareBackText}>‹ BACK TO HISTORY</Text>
         </TouchableOpacity>
 
         <View style={styles.historyDetailHeader}>
@@ -883,30 +865,38 @@ snapshotResult.error ||
     );
   };
 
-  const renderProducts = () => (
-    <>
-      <Text style={styles.sectionTitle}>Monitored products</Text>
-      {products.map(product => (
-        <View key={product.id} style={styles.simpleCard}>
-          <Text style={styles.productName}>{product.name}</Text>
-          <Text style={styles.unit}>{product.category} · {product.unit}</Text>
-          <Text style={styles.smallText}>Tracked across {suppliers.length} suppliers</Text>
+  const renderSuppliers = () => {
+    const selectedSupplier = suppliers.find(supplier => supplier.id === supplierDetailId);
+    const profile = selectedSupplier ? supplierProfiles[selectedSupplier.name] || {} : null;
+    if (selectedSupplier) {
+      const supplierProducts = products.map(product => ({product, row: currentPriceRow(selectedSupplier.id, product.id)}));
+      return (<>
+        <TouchableOpacity style={styles.compareBackButton} onPress={() => setSupplierDetailId(null)}><Text style={styles.compareBackText}>‹  BACK TO SUPPLIERS</Text></TouchableOpacity>
+        <View style={styles.supplierDetailHero}><View style={styles.supplierDetailIcon}><Text style={styles.supplierDetailIconText}>{selectedSupplier.name.slice(0, 1).toUpperCase()}</Text></View><View style={{flex: 1}}><Text style={styles.compareEyebrow}>SUPPLIER PROFILE</Text><Text style={styles.supplierDetailTitle}>{selectedSupplier.name}</Text><Text style={styles.supplierDetailLocation}>{selectedSupplier.location || 'Howick area'}</Text></View></View>
+        <View style={styles.supplierInfoCard}><Text style={styles.supplierInfoHeading}>ABOUT</Text><Text style={styles.supplierInfoText}>{profile.description || 'Supplier information and contact details.'}</Text></View>
+        <Text style={styles.sectionTitle}>Contact</Text>
+        <View style={styles.supplierInfoCard}>
+          {profile.phone ? <TouchableOpacity style={styles.supplierActionRow} onPress={() => openUrl('tel:'+profile.phone.replace(/\\s/g, ''))}><Text style={styles.supplierActionLabel}>PHONE</Text><Text style={styles.supplierActionValue}>{profile.phone}</Text></TouchableOpacity> : null}
+          {profile.alternatePhone ? <TouchableOpacity style={styles.supplierActionRow} onPress={() => openUrl('tel:'+profile.alternatePhone.replace(/\\s/g, ''))}><Text style={styles.supplierActionLabel}>ALTERNATE</Text><Text style={styles.supplierActionValue}>{profile.alternatePhone}</Text></TouchableOpacity> : null}
+          {profile.email ? <TouchableOpacity style={styles.supplierActionRow} onPress={() => openUrl('mailto:'+profile.email)}><Text style={styles.supplierActionLabel}>EMAIL</Text><Text style={styles.supplierActionValue}>{profile.email}</Text></TouchableOpacity> : null}
+          <View style={styles.supplierActionRow}><Text style={styles.supplierActionLabel}>ADDRESS</Text><Text style={styles.supplierActionValue}>{selectedSupplier.location || 'Howick area'}</Text></View>
         </View>
-      ))}
-      <Text style={styles.sectionTitle}>Suppliers</Text>
-      {suppliers.map(supplier => (
-        <View key={supplier.id} style={styles.simpleCard}>
-          <Text style={styles.productName}>{supplier.name}</Text>
-          <Text style={styles.unit}>{supplier.location || 'Howick'}</Text>
-          {supplier.website_url ? (
-            <TouchableOpacity onPress={() => openUrl(supplier.website_url)}>
-              <Text style={styles.link}>Open supplier website</Text>
-            </TouchableOpacity>
-          ) : null}
+        <Text style={styles.sectionTitle}>Online</Text>
+        <View style={styles.supplierLinksGrid}>
+          {profile.website ? <TouchableOpacity style={styles.supplierLinkButton} onPress={() => openUrl(profile.website)}><Text style={styles.supplierLinkButtonTitle}>WEBSITE</Text><Text style={styles.supplierLinkButtonText}>Open supplier website ›</Text></TouchableOpacity> : null}
+          {(profile.socials || []).map(social => <TouchableOpacity key={social.label} style={styles.supplierLinkButton} onPress={() => openUrl(social.url)}><Text style={styles.supplierLinkButtonTitle}>{social.label.toUpperCase()}</Text><Text style={styles.supplierLinkButtonText}>Open {social.label} ›</Text></TouchableOpacity>)}
         </View>
-      ))}
-    </>
-  );
+        <Text style={styles.sectionTitle}>PriceWatch</Text>
+        <View style={styles.supplierInfoCard}><Text style={styles.supplierInfoHeading}>MONITORED PRODUCTS</Text><Text style={styles.supplierInfoText}>Current prices and manual fallbacks for this supplier.</Text>
+          {supplierProducts.map(({product,row}) => <View key={product.id} style={styles.supplierProductRow}><View style={{flex:1,paddingRight:10}}><Text style={styles.supplierProductName}>{product.name}</Text><Text style={styles.checked}>{row?.source_type === 'manual' ? 'MANUAL INPUT' : row?.price != null ? 'MONITORED PRICE' : 'NO PRICE RECORDED'}</Text></View><Text style={[styles.supplierProductPrice,row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text></View>)}
+        </View>
+      </>);
+    }
+    return (<>
+      <Text style={styles.sectionTitle}>Suppliers</Text><Text style={styles.pageIntro}>Company information, contact details, websites and social media for the suppliers PriceWatch follows.</Text>
+      {suppliers.map(supplier => { const profile=supplierProfiles[supplier.name] || {}; const socialCount=profile.socials?.length || 0; return <TouchableOpacity key={supplier.id} activeOpacity={0.82} style={styles.supplierDirectoryCard} onPress={() => setSupplierDetailId(supplier.id)}><View style={styles.supplierDirectoryIcon}><Text style={styles.supplierDirectoryIconText}>{supplier.name.slice(0,1).toUpperCase()}</Text></View><View style={{flex:1}}><Text style={styles.productName}>{supplier.name}</Text><Text style={styles.unit}>{supplier.location || 'Howick area'}</Text><Text style={styles.supplierDirectoryMeta}>{profile.phone || 'Contact details'} · {socialCount} social link{socialCount === 1 ? '' : 's'}</Text></View><Text style={styles.historyArrow}>›</Text></TouchableOpacity>; })}
+    </>);
+  };
 
   const renderAlerts = () => (
     <>
@@ -990,7 +980,7 @@ snapshotResult.error ||
     </>
   );
 
-  const tabTitle = {dashboard: 'Dashboard', compare: 'Compare', history: 'History', products: 'Products', manual: 'Manual', promotions: 'Promotions', alerts: 'Alerts'}[tab];
+  const tabTitle = {dashboard: 'Dashboard', compare: 'Compare', history: 'History', suppliers: 'Suppliers', manual: 'Manual', promotions: 'Promotions', alerts: 'Alerts'}[tab];
 
   return (
     <View style={[styles.safe, {paddingTop: insets.top, paddingBottom: insets.bottom}]}>
@@ -1050,7 +1040,7 @@ snapshotResult.error ||
             {tab === 'dashboard' && renderDashboard()}
             {tab === 'compare' && renderCompare()}
             {tab === 'history' && renderHistory()}
-            {tab === 'products' && renderProducts()}
+            {tab === 'suppliers' && renderSuppliers()}
             {tab === 'manual' && renderManual()}
             {tab === 'promotions' && renderPromotions()}
             {tab === 'alerts' && renderAlerts()}
@@ -1061,7 +1051,7 @@ snapshotResult.error ||
           <NavButton label="Dashboard" active={tab === 'dashboard'} onPress={() => setTab('dashboard')} />
           <NavButton label="Compare" active={tab === 'compare'} onPress={() => setTab('compare')} />
           <NavButton label="History" active={tab === 'history'} onPress={() => setTab('history')} />
-          <NavButton label="Products" active={tab === 'products'} onPress={() => setTab('products')} />
+          <NavButton label="Suppliers" active={tab === 'suppliers'} onPress={() => setTab('suppliers')} />
           <NavButton label="Manual" active={tab === 'manual'} onPress={() => setTab('manual')} />
           <NavButton label="Promotions" active={tab === 'promotions'} onPress={() => setTab('promotions')} />
         </View>
@@ -1234,6 +1224,28 @@ const styles = StyleSheet.create({
   historyTableChange: {flex: 1, textAlign: 'right', fontSize: 10, fontWeight: '900', color: '#8d959e'},
   historyAllStoresCard: {backgroundColor: '#111419', borderRadius: 14, paddingHorizontal: 12, borderWidth: 1, borderColor: '#1f242c', marginBottom: 10},
   historyAllStoreRow: {flexDirection: 'row', alignItems: 'center', minHeight: 61, borderBottomWidth: 1, borderBottomColor: '#20252b'},
+  supplierDirectoryCard: {backgroundColor: '#111419', borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#1f242c', flexDirection: 'row', alignItems: 'center'},
+  supplierDirectoryIcon: {width: 48, height: 48, borderRadius: 14, backgroundColor: '#1b2027', borderWidth: 1, borderColor: '#303640', alignItems: 'center', justifyContent: 'center', marginRight: 12},
+  supplierDirectoryIconText: {fontSize: 20, fontWeight: '900', color: '#F5BE28'},
+  supplierDirectoryMeta: {fontSize: 9, color: '#707983', marginTop: 7},
+  supplierDetailHero: {backgroundColor: '#111419', borderRadius: 17, borderWidth: 1, borderColor: '#1f242c', padding: 16, flexDirection: 'row', alignItems: 'center'},
+  supplierDetailIcon: {width: 64, height: 64, borderRadius: 18, backgroundColor: '#3a2f12', borderWidth: 1, borderColor: '#F5BE28', alignItems: 'center', justifyContent: 'center', marginRight: 13},
+  supplierDetailIconText: {fontSize: 27, fontWeight: '900', color: '#F5BE28'},
+  supplierDetailTitle: {fontSize: 21, lineHeight: 25, fontWeight: '900', color: '#fff', marginTop: 3},
+  supplierDetailLocation: {fontSize: 10, color: '#858d96', marginTop: 5},
+  supplierInfoCard: {backgroundColor: '#111419', borderRadius: 15, borderWidth: 1, borderColor: '#1f242c', padding: 14, marginBottom: 4},
+  supplierInfoHeading: {fontSize: 10, fontWeight: '900', color: '#F5BE28', letterSpacing: 1, marginBottom: 7},
+  supplierInfoText: {fontSize: 12, lineHeight: 18, color: '#aeb5bd'},
+  supplierActionRow: {flexDirection: 'row', alignItems: 'center', minHeight: 45, borderBottomWidth: 1, borderBottomColor: '#20252b'},
+  supplierActionLabel: {width: 76, fontSize: 8, fontWeight: '900', color: '#6f7882'},
+  supplierActionValue: {flex: 1, fontSize: 12, color: '#dce1e6', fontWeight: '700'},
+  supplierLinksGrid: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between'},
+  supplierLinkButton: {width: '48.5%', backgroundColor: '#111419', borderRadius: 13, borderWidth: 1, borderColor: '#1f242c', padding: 12, marginBottom: 8},
+  supplierLinkButtonTitle: {fontSize: 9, fontWeight: '900', color: '#F5BE28', letterSpacing: 0.8},
+  supplierLinkButtonText: {fontSize: 11, fontWeight: '800', color: '#dce1e6', marginTop: 7},
+  supplierProductRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#20252b', marginTop: 8},
+  supplierProductName: {fontSize: 11, fontWeight: '800', color: '#dce1e6'},
+  supplierProductPrice: {fontSize: 18, fontWeight: '900', color: '#ff3340'},
   simpleCard: {backgroundColor: '#111419', borderRadius: 15, padding: 16, marginBottom: 10},
   smallText: {fontSize: 13, lineHeight: 19, color: '#b8bec5', marginTop: 10},
   link: {fontSize: 13, fontWeight: '800', color: '#F5BE28', marginTop: 12},
