@@ -58,3 +58,5 @@ jobs:
           name: PriceWatch-Standalone-APK
           path: release-apk/PriceWatch-latest.apk
           retention-days: 30
+
+# Standalone phone build: no emulator validation.
