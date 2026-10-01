@@ -44,6 +44,29 @@ jobs:
               s=re.sub(r'^'+k+r'=.*$',k+'=false',s,flags=re.M)
           if 'newArchEnabled=' not in s: s+='\nnewArchEnabled=false\n'
           if 'bridgelessEnabled=' not in s: s+='\nbridgelessEnabled=false\n'
+          s=re.sub(r'^reactNativeArchitectures=.*
+        run: python3 scripts/setup_notifications.py
+      - name: Verify React Native component registration
+        run: |
+          grep -n 'getMainComponentName' android/app/src/main/java/com/pricewatchnative/MainActivity.kt
+          grep -q 'getMainComponentName(): String = "PriceWatch"' android/app/src/main/java/com/pricewatchnative/MainActivity.kt
+          grep -q 'POST_NOTIFICATIONS' android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/res/raw/price_watch_alert.wav
+          grep -q 'PriceWatchNotificationReceiver' android/app/src/main/AndroidManifest.xml
+      - name: Build release APK
+        run: cd android && ./gradlew :app:assembleRelease --no-daemon
+      - name: Inspect APK
+        run: |
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -name aapt2 -type f | sort -V | tail -1)
+          "$AAPT2" dump badging android/app/build/outputs/apk/release/app-release.apk | grep -E "package:|launchable-activity:|application-label:"
+          test -s android/app/build/outputs/apk/release/app-release.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PriceWatch-Clean-APK
+          path: android/app/build/outputs/apk/release/app-release.apk
+, 'reactNativeArchitectures=arm64-v8a', s, flags=re.M)
+          if 'reactNativeArchitectures=' not in s: s+='\nreactNativeArchitectures=arm64-v8a\n'
           p.write_text(s)
           PY
       - name: Install native notifications
