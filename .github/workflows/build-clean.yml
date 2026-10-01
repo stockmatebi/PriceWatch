@@ -27,6 +27,16 @@ jobs:
           rm -rf PriceWatchNative
           python3 - <<'PY'
           from pathlib import Path
+          p=Path('android/app/src/main/java/com/pricewatchnative/MainActivity.kt')
+          s=p.read_text()
+          old='getMainComponentName(): String = "PriceWatchNative"'
+          new='getMainComponentName(): String = "PriceWatch"'
+          if old not in s:
+              raise SystemExit('Expected React Native main component name was not found')
+          p.write_text(s.replace(old,new))
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
           p=Path('android/gradle.properties')
           s=p.read_text()
           import re
@@ -36,6 +46,10 @@ jobs:
           if 'bridgelessEnabled=' not in s: s+='bridgelessEnabled=false\n'
           p.write_text(s)
           PY
+      - name: Verify React Native component registration
+        run: |
+          grep -n 'getMainComponentName' android/app/src/main/java/com/pricewatchnative/MainActivity.kt
+          grep -q 'getMainComponentName(): String = "PriceWatch"' android/app/src/main/java/com/pricewatchnative/MainActivity.kt
       - name: Build release APK
         run: cd android && ./gradlew :app:assembleRelease --no-daemon
       - name: Inspect APK
