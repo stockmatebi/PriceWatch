@@ -121,6 +121,7 @@ jobs:
           <resources>
               <color name="pricewatch_launcher_background">#08090D</color>
           </resources>''')
+          PY
           python3 -m pip install --quiet pillow
           python3 - <<'PY'
           from pathlib import Path
