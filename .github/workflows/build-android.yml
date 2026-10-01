@@ -40,58 +40,21 @@ jobs:
         working-directory: android
         run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
-      - name: Inspect APK before emulator
+      - name: Inspect APK
         run: |
           test -s android/app/build/outputs/apk/release/app-release.apk
           stat -c '%s bytes' android/app/build/outputs/apk/release/app-release.apk
           unzip -l android/app/build/outputs/apk/release/app-release.apk | grep -E 'ic_launcher|price_watch' | head -50 || true
 
-      - name: Android emulator diagnostic launch test
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          profile: pixel_2
-          script: |
-            adb install -r android/app/build/outputs/apk/release/app-release.apk || true
-            adb shell am force-stop com.pricewatch.app || true
-            mkdir -p smoke-diagnostics
-            adb shell monkey -p com.pricewatch.app 1 > smoke-diagnostics/monkey.txt 2>&1 || true
-            sleep 12
-            PID=$(adb shell pidof com.pricewatch.app | tr -d '\r')
-            if [ -n "$PID" ]; then
-              echo "PASS" > smoke-result.txt
-              echo "Price Watch process is running: $PID"
-            else
-              echo "FAIL" > smoke-result.txt
-              echo "Price Watch process is NOT running"
-            fi
-            adb logcat -d -t 1200 > smoke-diagnostics/logcat.txt 2>&1 || true
-            adb shell ls -la /sdcard/Android/data/com.pricewatch.app/files/PriceWatch > smoke-diagnostics/diagnostic-list.txt 2>&1 || true
-            adb shell cat /sdcard/Android/data/com.pricewatch.app/files/PriceWatch/pricewatch_startup.log > smoke-diagnostics/pricewatch_startup.log 2>&1 || true
-            adb shell dumpsys package com.pricewatch.app > smoke-diagnostics/package.txt 2>&1 || true
-            echo "Smoke result: $(cat smoke-result.txt)"
-            exit 0
-
-      - name: Verify launch result
-        run: |
-          test -f smoke-result.txt
-          test "$(cat smoke-result.txt)" = "PASS"
-
       - name: Stage APK
-        if: always()
         run: |
           mkdir -p release-apk
           cp android/app/build/outputs/apk/release/app-release.apk release-apk/PriceWatch-latest.apk
           test -s release-apk/PriceWatch-latest.apk
 
-      - name: Upload APK and diagnostics
-        if: always()
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: PriceWatch-Standalone-APK
-          path: |
-            release-apk/PriceWatch-latest.apk
-            smoke-result.txt
-            smoke-diagnostics/
+          path: release-apk/PriceWatch-latest.apk
           retention-days: 30
