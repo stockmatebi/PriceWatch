@@ -4,6 +4,7 @@ import {
   Linking,
   RefreshControl,
   ScrollView,
+  TextInput,
   StatusBar,
   StyleSheet,
   Text,
@@ -78,6 +79,10 @@ function PriceWatchApp() {
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
   const [snapshots, setSnapshots] = useState([]);
+  const [manualPrices, setManualPrices] = useState([]);
+  const [manualSupplierId, setManualSupplierId] = useState('');
+  const [manualDraft, setManualDraft] = useState({});
+  const [manualSaving, setManualSaving] = useState(false);
   const [promotions, setPromotions] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [latestRun, setLatestRun] = useState(null);
@@ -87,7 +92,7 @@ function PriceWatchApp() {
 
   const loadData = useCallback(async () => {
     setError('');
-    const [supplierResult, productResult, snapshotResult, promotionResult, alertResult, runResult] =
+    const [supplierResult, productResult, snapshotResult, manualPriceResult, promotionResult, alertResult, runResult] =
       await Promise.all([
         supabase.from('pw_suppliers').select('id,name,location,website_url').eq('active', true).order('name'),
         supabase.from('pw_products').select('id,name,category,unit').eq('active', true).order('name'),
@@ -96,6 +101,10 @@ function PriceWatchApp() {
           .select('id,supplier_id,product_id,price,promotion_text,source_url,source_type,confidence,checked_at')
           .order('checked_at', {ascending: false})
           .limit(500),
+        supabase
+          .from('pw_manual_prices')
+          .select('id,supplier_id,product_id,price,notes,updated_at')
+          .order('updated_at', {ascending: false}),
         supabase
           .from('pw_promotions')
           .select('id,supplier_id,platform,title,text,image_url,post_url,posted_at,detected_at,ai_summary,ai_extraction,is_promotion,confidence,valid_from,valid_until,validity_type,validity_text,validity_confidence')
@@ -118,7 +127,8 @@ function PriceWatchApp() {
     const firstError =
       supplierResult.error ||
       productResult.error ||
-      snapshotResult.error ||
+snapshotResult.error ||
+      manualPriceResult.error ||
       promotionResult.error ||
       alertResult.error ||
       runResult.error;
@@ -133,7 +143,9 @@ function PriceWatchApp() {
     setSuppliers(supplierResult.data || []);
     setProducts(productResult.data || []);
     setSnapshots(snapshotResult.data || []);
+    setManualPrices(manualPriceResult.data || []);
     setPromotions(promotionResult.data || []);
+    setManualSupplierId(current => current || supplierResult.data?.[0]?.id || '');
     setAlerts(alertResult.data || []);
     setLatestRun(runResult.data?.[0] || null);
     setLoading(false);
@@ -164,6 +176,22 @@ function PriceWatchApp() {
     return map;
   }, [historyByKey]);
 
+  const manualByKey = useMemo(() => {
+    const map = new Map();
+    for (const row of manualPrices) {
+      map.set(`${row.supplier_id}|${row.product_id}`, row);
+    }
+    return map;
+  }, [manualPrices]);
+
+  const currentPriceRow = (supplierId, productId) => {
+    const manual = manualByKey.get(`${supplierId}|${productId}`);
+    if (manual) {
+      return {...manual, source_type: 'manual', checked_at: manual.updated_at};
+    }
+    return latest.get(`${supplierId}|${productId}`);
+  };
+
   const previous = useMemo(() => {
     const map = new Map();
     for (const [key, rows] of historyByKey.entries()) {
@@ -190,6 +218,141 @@ function PriceWatchApp() {
       latest.get(`${supplierId}|${productId}`)?.price,
       previous.get(`${supplierId}|${productId}`)?.price,
     );
+
+  const saveManualPrice = async productId => {
+    const raw = String(manualDraft[productId] ?? '').replace(',', '.').trim();
+    if (!manualSupplierId || !raw) return;
+    const price = Number(raw);
+    if (!Number.isFinite(price) || price < 0) {
+      setError('Enter a valid price.');
+      return;
+    }
+
+    setManualSaving(true);
+    setError('');
+    const {data, error: saveError} = await supabase
+      .from('pw_manual_prices')
+      .upsert(
+        {
+          supplier_id: manualSupplierId,
+          product_id: productId,
+          price: Number(price.toFixed(2)),
+          notes: 'Manually entered in PriceWatch',
+          updated_at: new Date().toISOString(),
+        },
+        {onConflict: 'supplier_id,product_id'},
+      )
+      .select('id,supplier_id,product_id,price,notes,updated_at')
+      .single();
+
+    if (saveError) {
+      setError(saveError.message || 'Could not save manual price.');
+    } else {
+      setManualPrices(current => [
+        ...current.filter(row => !(row.supplier_id === manualSupplierId && row.product_id === productId)),
+        data,
+      ]);
+      setManualDraft(current => ({...current, [productId]: String(Number(data.price).toFixed(2))}));
+    }
+    setManualSaving(false);
+  };
+
+  const clearManualPrice = async productId => {
+    if (!manualSupplierId) return;
+    setManualSaving(true);
+    setError('');
+    const {error: deleteError} = await supabase
+      .from('pw_manual_prices')
+      .delete()
+      .eq('supplier_id', manualSupplierId)
+      .eq('product_id', productId);
+
+    if (deleteError) {
+      setError(deleteError.message || 'Could not remove manual price.');
+    } else {
+      setManualPrices(current =>
+        current.filter(row => !(row.supplier_id === manualSupplierId && row.product_id === productId)),
+      );
+      setManualDraft(current => ({...current, [productId]: ''}));
+    }
+    setManualSaving(false);
+  };
+
+  const renderManual = () => {
+    const selectedSupplier = suppliers.find(supplier => supplier.id === manualSupplierId);
+    return (
+      <>
+        <Text style={styles.sectionTitle}>Manual pricing</Text>
+        <Text style={styles.pageIntro}>
+          Enter a current price when a supplier does not publish a usable online price. Manual prices are shown in blue and are clearly labelled MANUAL.
+        </Text>
+
+        <View style={styles.manualNotice}>
+          <Text style={styles.manualNoticeTitle}>MANUAL ENTRY</Text>
+          <Text style={styles.manualNoticeText}>
+            These values are not used by the automatic website/social monitor and will not be overwritten by hourly checks.
+          </Text>
+        </View>
+
+        <Text style={styles.manualLabel}>Supplier</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10}}>
+          {suppliers.map(supplier => (
+            <TouchableOpacity
+              key={supplier.id}
+              style={[styles.supplierChip, supplier.id === manualSupplierId && styles.supplierChipActive]}
+              onPress={() => setManualSupplierId(supplier.id)}>
+              <Text style={[styles.supplierChipText, supplier.id === manualSupplierId && styles.supplierChipTextActive]}>
+                {supplier.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <View style={styles.productCard}>
+          <Text style={styles.productName}>{selectedSupplier?.name || 'Select a supplier'}</Text>
+          <Text style={styles.unit}>Enter the four monitored lines below.</Text>
+
+          {products.map(product => {
+            const manual = manualByKey.get(`${manualSupplierId}|${product.id}`);
+            const draftValue = manualDraft[product.id] ?? (manual ? String(Number(manual.price).toFixed(2)) : '');
+            return (
+              <View key={product.id} style={styles.manualRow}>
+                <View style={{flex: 1, paddingRight: 10}}>
+                  <Text style={styles.supplierName}>{product.name}</Text>
+                  <Text style={styles.checked}>{manual ? `MANUAL · Updated ${timeLabel(manual.updated_at)}` : 'No manual price entered'}</Text>
+                </View>
+                <TextInput
+                  value={draftValue}
+                  onChangeText={value => setManualDraft(current => ({...current, [product.id]: value}))}
+                  placeholder="0.00"
+                  placeholderTextColor="#68717b"
+                  keyboardType="decimal-pad"
+                  style={styles.manualInput}
+                />
+                <TouchableOpacity
+                  style={styles.manualSaveButton}
+                  disabled={manualSaving || !manualSupplierId}
+                  onPress={() => saveManualPrice(product.id)}>
+                  <Text style={styles.manualSaveText}>{manualSaving ? '…' : 'Save'}</Text>
+                </TouchableOpacity>
+                {manual ? (
+                  <TouchableOpacity style={styles.manualClearButton} disabled={manualSaving} onPress={() => clearManualPrice(product.id)}>
+                    <Text style={styles.manualClearText}>×</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={styles.legendCard}>
+          <Text style={styles.legendTitle}>Price colour key</Text>
+          <Text style={styles.manualLegendText}>BLUE PRICE / MANUAL = entered by you</Text>
+          <Text style={styles.legendText}>YELLOW PRICE = automatically monitored price</Text>
+        </View>
+      </>
+    );
+  };
 
   const renderChange = (value, compact = false) => {
     if (value == null) {
@@ -244,7 +407,7 @@ function PriceWatchApp() {
             <Text style={styles.productName}>{product.name}</Text>
             <Text style={styles.unit}>{product.unit}</Text>
             {suppliers.map(supplier => {
-              const row = latest.get(`${supplier.id}|${product.id}`);
+              const row = currentPriceRow(supplier.id, product.id);
               const pct = priceChange(supplier.id, product.id);
               return (
                 <View key={supplier.id} style={styles.priceRow}>
@@ -253,7 +416,8 @@ function PriceWatchApp() {
                     <Text style={styles.checked}>{timeLabel(row?.checked_at)}</Text>
                   </View>
                   <View style={styles.priceRight}>
-                    <Text style={styles.price}>{money(row?.price)}</Text>
+                    <Text style={[styles.price, row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text>
+                    {row?.source_type === 'manual' ? <Text style={styles.manualBadgeText}>MANUAL</Text> : null}
                     {(() => {
                       const status = priceStatusForRow(row);
                       return status ? (
@@ -319,7 +483,7 @@ function PriceWatchApp() {
       <Text style={styles.pageIntro}>Current prices side-by-side. Lowest available price is highlighted.</Text>
       {products.map(product => {
         const rows = suppliers
-          .map(supplier => ({supplier, row: latest.get(`${supplier.id}|${product.id}`)}))
+          .map(supplier => ({supplier, row: currentPriceRow(supplier.id, product.id)}))
           .filter(item => item.row?.price != null)
           .sort((a, b) => Number(a.row.price) - Number(b.row.price));
         const lowest = rows[0]?.row?.price;
@@ -336,9 +500,10 @@ function PriceWatchApp() {
                   <Text style={styles.checked}>{timeLabel(item.row.checked_at)}</Text>
                 </View>
                 <View style={{alignItems: 'flex-end'}}>
-                  <Text style={[styles.price, Number(item.row.price) === Number(lowest) && styles.lowestPrice]}>
+                  <Text style={[styles.price, item.row.source_type === 'manual' && styles.manualPrice, Number(item.row.price) === Number(lowest) && styles.lowestPrice]}>
                     {money(item.row.price)}
                   </Text>
+                  {item.row.source_type === 'manual' ? <Text style={styles.manualBadgeText}>MANUAL</Text> : null}
                   {(() => {
                     const status = priceStatusForRow(item.row);
                     return status ? (
@@ -496,7 +661,7 @@ function PriceWatchApp() {
     </>
   );
 
-  const tabTitle = {dashboard: 'Dashboard', compare: 'Compare', history: 'History', products: 'Products', promotions: 'Promotions', alerts: 'Alerts'}[tab];
+  const tabTitle = {dashboard: 'Dashboard', compare: 'Compare', history: 'History', products: 'Products', manual: 'Manual', promotions: 'Promotions', alerts: 'Alerts'}[tab];
 
   return (
     <View style={[styles.safe, {paddingTop: insets.top, paddingBottom: insets.bottom}]}>
@@ -546,6 +711,7 @@ function PriceWatchApp() {
             {tab === 'compare' && renderCompare()}
             {tab === 'history' && renderHistory()}
             {tab === 'products' && renderProducts()}
+            {tab === 'manual' && renderManual()}
             {tab === 'promotions' && renderPromotions()}
             {tab === 'alerts' && renderAlerts()}
           </ScrollView>
@@ -556,6 +722,7 @@ function PriceWatchApp() {
           <NavButton label="Compare" active={tab === 'compare'} onPress={() => setTab('compare')} />
           <NavButton label="History" active={tab === 'history'} onPress={() => setTab('history')} />
           <NavButton label="Products" active={tab === 'products'} onPress={() => setTab('products')} />
+          <NavButton label="Manual" active={tab === 'manual'} onPress={() => setTab('manual')} />
           <NavButton label="Promotions" active={tab === 'promotions'} onPress={() => setTab('promotions')} />
           <NavButton label="Alerts" active={tab === 'alerts'} onPress={() => setTab('alerts')} />
         </View>
@@ -635,6 +802,23 @@ const styles = StyleSheet.create({
   simpleCard: {backgroundColor: '#1d2127', borderRadius: 15, padding: 16, marginBottom: 10},
   smallText: {fontSize: 13, lineHeight: 19, color: '#b8bec5', marginTop: 10},
   link: {fontSize: 13, fontWeight: '800', color: '#F5BE28', marginTop: 12},
+  manualNotice: {backgroundColor: '#172631', borderRadius: 14, padding: 13, marginBottom: 12, borderWidth: 1, borderColor: '#28506a'},
+  manualNoticeTitle: {fontSize: 11, fontWeight: '900', color: '#4FC3F7', letterSpacing: 0.8},
+  manualNoticeText: {fontSize: 12, lineHeight: 18, color: '#b9c7d0', marginTop: 4},
+  manualLabel: {fontSize: 12, fontWeight: '800', color: '#dce1e6', marginBottom: 7},
+  supplierChip: {backgroundColor: '#1d2127', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 9, marginRight: 7, borderWidth: 1, borderColor: '#2a3037'},
+  supplierChipActive: {backgroundColor: '#203747', borderColor: '#4FC3F7'},
+  supplierChipText: {fontSize: 11, fontWeight: '700', color: '#aeb4bc'},
+  supplierChipTextActive: {color: '#4FC3F7'},
+  manualRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderTopWidth: 1, borderTopColor: '#2a2f36', marginTop: 9},
+  manualInput: {width: 72, height: 40, borderRadius: 8, borderWidth: 1, borderColor: '#3b454f', backgroundColor: '#12171b', color: '#4FC3F7', fontSize: 14, fontWeight: '800', textAlign: 'right', paddingHorizontal: 8},
+  manualSaveButton: {marginLeft: 6, backgroundColor: '#4FC3F7', borderRadius: 8, paddingHorizontal: 9, paddingVertical: 11},
+  manualSaveText: {fontSize: 10, fontWeight: '900', color: '#10202a'},
+  manualClearButton: {marginLeft: 4, width: 27, height: 40, borderRadius: 8, backgroundColor: '#2a2020', alignItems: 'center', justifyContent: 'center'},
+  manualClearText: {fontSize: 20, color: '#ff7777', lineHeight: 20},
+  manualPrice: {color: '#4FC3F7'},
+  manualBadgeText: {fontSize: 8, fontWeight: '900', color: '#4FC3F7', marginTop: 2},
+  manualLegendText: {fontSize: 10, fontWeight: '800', color: '#4FC3F7', marginTop: 5},
   emptyCard: {backgroundColor: '#1d2127', borderRadius: 15, padding: 18, marginTop: 4},
   emptyTitle: {fontSize: 16, fontWeight: '800', color: '#fff'},
   emptyText: {fontSize: 13, lineHeight: 20, color: '#aeb4bc', marginTop: 8},
@@ -662,6 +846,6 @@ const styles = StyleSheet.create({
   retryText: {fontWeight: '800', color: '#121417'},
   nav: {height: 64, borderTopWidth: 1, borderTopColor: '#252a31', backgroundColor: '#0e1012', flexDirection: 'row'},
   navButton: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2},
-  navText: {fontSize: 9, fontWeight: '700', color: '#7f8790'},
+  navText: {fontSize: 8, fontWeight: '700', color: '#7f8790'},
   navTextActive: {color: '#F5BE28'},
 });
