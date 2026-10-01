@@ -105,7 +105,7 @@ function PriceWatchApp() {
         supabase
           .from('pw_alerts')
           .select('id,supplier_id,product_id,old_price,new_price,percentage_change,source_url,alert_type,detected_at')
-          .eq('alert_type', 'price_change')
+          .in('alert_type', ['price_change', 'promotion_price_change'])
           .order('detected_at', {ascending: false})
           .limit(30),
         supabase
@@ -142,6 +142,8 @@ function PriceWatchApp() {
 
   useEffect(() => {
     loadData();
+    const timer = setInterval(() => loadData(), 60000);
+    return () => clearInterval(timer);
   }, [loadData]);
 
   const historyByKey = useMemo(() => {
@@ -412,6 +414,38 @@ function PriceWatchApp() {
     </>
   );
 
+  const renderAlerts = () => (
+    <>
+      <Text style={styles.sectionTitle}>Price alerts</Text>
+      <Text style={styles.pageIntro}>PriceWatch checks for changes automatically every hour while monitoring is active.</Text>
+      {alerts.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No price alerts yet</Text>
+          <Text style={styles.emptyText}>When a monitored supplier price changes, the alert will appear here automatically.</Text>
+        </View>
+      ) : alerts.map(alert => {
+        const product = products.find(item => item.id === alert.product_id);
+        const supplier = suppliers.find(item => item.id === alert.supplier_id);
+        const increase = Number(alert.percentage_change) > 0;
+        return (
+          <View key={alert.id} style={styles.changeCard}>
+            <View style={{flex: 1}}>
+              <Text style={styles.productName}>{product?.name || 'Monitored product'}</Text>
+              <Text style={styles.unit}>{supplier?.name || 'Supplier'} · {timeLabel(alert.detected_at)}</Text>
+              <Text style={styles.checked}>{alert.alert_type === 'promotion_price_change' ? 'PROMOTION PRICE CHANGE' : 'PRICE CHANGE'}</Text>
+            </View>
+            <View style={{alignItems: 'flex-end'}}>
+              <Text style={styles.price}>{money(alert.new_price)}</Text>
+              <Text style={[styles.change, increase ? styles.changeUp : styles.changeDown]}>
+                {increase ? '▲ ' : '▼ '}{Math.abs(Number(alert.percentage_change)).toFixed(1)}%
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </>
+  );
+
   const renderPromotions = () => (
     <>
       <Text style={styles.sectionTitle}>Promotions</Text>
@@ -462,7 +496,7 @@ function PriceWatchApp() {
     </>
   );
 
-  const tabTitle = {dashboard: 'Dashboard', compare: 'Compare', history: 'History', products: 'Products', promotions: 'Promotions'}[tab];
+  const tabTitle = {dashboard: 'Dashboard', compare: 'Compare', history: 'History', products: 'Products', promotions: 'Promotions', alerts: 'Alerts'}[tab];
 
   return (
     <View style={[styles.safe, {paddingTop: insets.top, paddingBottom: insets.bottom}]}>
@@ -513,6 +547,7 @@ function PriceWatchApp() {
             {tab === 'history' && renderHistory()}
             {tab === 'products' && renderProducts()}
             {tab === 'promotions' && renderPromotions()}
+            {tab === 'alerts' && renderAlerts()}
           </ScrollView>
         )}
 
@@ -522,6 +557,7 @@ function PriceWatchApp() {
           <NavButton label="History" active={tab === 'history'} onPress={() => setTab('history')} />
           <NavButton label="Products" active={tab === 'products'} onPress={() => setTab('products')} />
           <NavButton label="Promotions" active={tab === 'promotions'} onPress={() => setTab('promotions')} />
+          <NavButton label="Alerts" active={tab === 'alerts'} onPress={() => setTab('alerts')} />
         </View>
       </View>
     </View>
@@ -626,6 +662,6 @@ const styles = StyleSheet.create({
   retryText: {fontWeight: '800', color: '#121417'},
   nav: {height: 64, borderTopWidth: 1, borderTopColor: '#252a31', backgroundColor: '#0e1012', flexDirection: 'row'},
   navButton: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2},
-  navText: {fontSize: 10, fontWeight: '700', color: '#7f8790'},
+  navText: {fontSize: 9, fontWeight: '700', color: '#7f8790'},
   navTextActive: {color: '#F5BE28'},
 });
