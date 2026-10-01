@@ -284,13 +284,13 @@ snapshotResult.error ||
       <>
         <Text style={styles.sectionTitle}>Manual pricing</Text>
         <Text style={styles.pageIntro}>
-          Enter a current price when a supplier does not publish a usable online price. Manual prices are shown in blue and are clearly labelled MANUAL.
+          Enter a fallback price when a supplier does not publish a usable online price. Manual prices are shown in blue. When PriceWatch receives a newer verified supplier price, it automatically replaces the manual price.
         </Text>
 
         <View style={styles.manualNotice}>
           <Text style={styles.manualNoticeTitle}>MANUAL ENTRY</Text>
           <Text style={styles.manualNoticeText}>
-            These values are not used by the automatic website/social monitor and will not be overwritten by hourly checks.
+            These values are fallback prices. A newer verified website or social-media price automatically overrides the manual value.
           </Text>
         </View>
 
@@ -347,7 +347,7 @@ snapshotResult.error ||
 
         <View style={styles.legendCard}>
           <Text style={styles.legendTitle}>Price colour key</Text>
-          <Text style={styles.manualLegendText}>BLUE PRICE / MANUAL = entered by you</Text>
+          <Text style={styles.manualLegendText}>BLUE PRICE / MANUAL = your fallback price until an updated monitored price is received</Text>
           <Text style={styles.legendText}>YELLOW PRICE = automatically monitored price</Text>
         </View>
       </>
