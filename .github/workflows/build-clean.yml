@@ -43,13 +43,18 @@ jobs:
           for k in ('newArchEnabled','bridgelessEnabled'):
               s=re.sub(r'^'+k+r'=.*$',k+'=false',s,flags=re.M)
           if 'newArchEnabled=' not in s: s+='\nnewArchEnabled=false\n'
-          if 'bridgelessEnabled=' not in s: s+='bridgelessEnabled=false\n'
+          if 'bridgelessEnabled=' not in s: s+='\nbridgelessEnabled=false\n'
           p.write_text(s)
           PY
+      - name: Install native notifications
+        run: python3 scripts/setup_notifications.py
       - name: Verify React Native component registration
         run: |
           grep -n 'getMainComponentName' android/app/src/main/java/com/pricewatchnative/MainActivity.kt
           grep -q 'getMainComponentName(): String = "PriceWatch"' android/app/src/main/java/com/pricewatchnative/MainActivity.kt
+          grep -q 'POST_NOTIFICATIONS' android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/res/raw/price_watch_alert.wav
+          grep -q 'PriceWatchNotificationReceiver' android/app/src/main/AndroidManifest.xml
       - name: Build release APK
         run: cd android && ./gradlew :app:assembleRelease --no-daemon
       - name: Inspect APK
