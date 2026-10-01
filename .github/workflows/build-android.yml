@@ -36,6 +36,19 @@ jobs:
           mkdir -p android/app/src/main/res/raw
           cp assets/price_alert.wav android/app/src/main/res/raw/price_alert.wav
 
+      - name: Verify clean Android startup configuration
+        run: |
+          test -f android/app/src/main/java/com/pricewatch/app/MainActivity.kt
+          test -f android/app/src/main/java/com/pricewatch/app/MainApplication.kt
+          grep -q 'DefaultReactActivityDelegate(this, mainComponentName, false)' android/app/src/main/java/com/pricewatch/app/MainActivity.kt
+          grep -q 'ReactNativeHost' android/app/src/main/java/com/pricewatch/app/MainApplication.kt
+          grep -q '^newArchEnabled=false' android/gradle.properties
+          grep -q '^bridgelessEnabled=false' android/gradle.properties
+          grep -q 'applicationId "com.pricewatch.app"' android/app/build.gradle
+          grep -q 'android:name="com.pricewatch.app.MainActivity"' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:name="com.pricewatch.app.MainApplication"' android/app/src/main/AndroidManifest.xml
+          echo "Clean classic React Native startup configuration verified."
+
       - name: Build release APK
         working-directory: android
         run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
@@ -45,6 +58,8 @@ jobs:
           test -s android/app/build/outputs/apk/release/app-release.apk
           stat -c '%s bytes' android/app/build/outputs/apk/release/app-release.apk
           unzip -l android/app/build/outputs/apk/release/app-release.apk | grep -E 'ic_launcher|price_watch' | head -50 || true
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -name aapt2 -type f | sort -V | tail -1)
+          "$AAPT2" dump badging android/app/build/outputs/apk/release/app-release.apk | grep -E "package:|launchable-activity:|application-label:"
 
       - name: Stage APK
         run: |
