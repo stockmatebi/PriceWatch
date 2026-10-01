@@ -87,10 +87,13 @@ function PriceWatchApp() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('dashboard');
   const [compareProductId, setCompareProductId] = useState(null);
+  const [historyProductId, setHistoryProductId] = useState(null);
+  const [historySupplierId, setHistorySupplierId] = useState(null);
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
   const [snapshots, setSnapshots] = useState([]);
   const [manualPrices, setManualPrices] = useState([]);
+  const [manualHistory, setManualHistory] = useState([]);
   const [manualSupplierId, setManualSupplierId] = useState('');
   const [manualDraft, setManualDraft] = useState({});
   const [manualSaving, setManualSaving] = useState(false);
@@ -103,7 +106,7 @@ function PriceWatchApp() {
 
   const loadData = useCallback(async () => {
     setError('');
-    const [supplierResult, productResult, snapshotResult, manualPriceResult, promotionResult, alertResult, runResult] =
+    const [supplierResult, productResult, snapshotResult, manualPriceResult, manualHistoryResult, promotionResult, alertResult, runResult] =
       await Promise.all([
         supabase.from('pw_suppliers').select('id,name,location,website_url').eq('active', true).order('name'),
         supabase.from('pw_products').select('id,name,category,unit').eq('active', true).order('name'),
@@ -116,6 +119,11 @@ function PriceWatchApp() {
           .from('pw_manual_prices')
           .select('id,supplier_id,product_id,price,notes,updated_at')
           .order('updated_at', {ascending: false}),
+        supabase
+          .from('pw_manual_price_history')
+          .select('id,supplier_id,product_id,price,notes,recorded_at,source_type')
+          .order('recorded_at', {ascending: false})
+          .limit(500),
         supabase
           .from('pw_promotions')
           .select('id,supplier_id,platform,title,text,image_url,post_url,posted_at,detected_at,ai_summary,ai_extraction,is_promotion,confidence,valid_from,valid_until,validity_type,validity_text,validity_confidence')
@@ -140,6 +148,7 @@ function PriceWatchApp() {
       productResult.error ||
 snapshotResult.error ||
       manualPriceResult.error ||
+      manualHistoryResult.error ||
       promotionResult.error ||
       alertResult.error ||
       runResult.error;
@@ -155,6 +164,7 @@ snapshotResult.error ||
     setProducts(productResult.data || []);
     setSnapshots(snapshotResult.data || []);
     setManualPrices(manualPriceResult.data || []);
+    setManualHistory(manualHistoryResult.data || []);
     setPromotions(promotionResult.data || []);
     setManualSupplierId(current => current || supplierResult.data?.[0]?.id || '');
     setAlerts(alertResult.data || []);
@@ -186,6 +196,16 @@ snapshotResult.error ||
     }
     return map;
   }, [historyByKey]);
+
+  const manualHistoryByKey = useMemo(() => {
+    const map = new Map();
+    for (const row of manualHistory) {
+      const key = `${row.supplier_id}|${row.product_id}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(row);
+    }
+    return map;
+  }, [manualHistory]);
 
   const manualByKey = useMemo(() => {
     const map = new Map();
@@ -275,6 +295,18 @@ snapshotResult.error ||
       setManualPrices(current => [
         ...current.filter(row => !(row.supplier_id === manualSupplierId && row.product_id === productId)),
         data,
+      ]);
+      setManualHistory(current => [
+        {
+          id: `local-${Date.now()}`,
+          supplier_id: manualSupplierId,
+          product_id: productId,
+          price: data.price,
+          notes: data.notes,
+          recorded_at: data.updated_at,
+          source_type: 'manual',
+        },
+        ...current.filter(row => !(row.supplier_id === manualSupplierId && row.product_id === productId && Number(row.price) === Number(data.price) && row.recorded_at === data.updated_at)),
       ]);
       setManualDraft(current => ({...current, [productId]: String(Number(data.price).toFixed(2))}));
     }
@@ -392,7 +424,6 @@ snapshotResult.error ||
   };
 
   const renderDashboard = () => {
-    const dashboardSuppliers = suppliers.filter(supplier => supplier.name === 'Cashbuild Howick');
     const changed = alerts.map(alert => ({
       alert,
       product: products.find(product => product.id === alert.product_id),
@@ -405,7 +436,7 @@ snapshotResult.error ||
           <View style={{flex: 1}}>
             <Text style={styles.eyebrow}>LIVE MONITORING</Text>
             <Text style={styles.heroTitle}>PriceWatch</Text>
-            <Text style={styles.heroText}>Competitor prices monitored from configured sources.</Text>
+            <Text style={styles.heroText}>Compare every supplier from one screen. Automated prices and manual fallbacks are shown together.</Text>
           </View>
           <TouchableOpacity style={styles.refreshButton} onPress={() => { setRefreshing(true); loadData(); }}>
             <Text style={styles.refreshText}>Refresh</Text>
@@ -415,57 +446,57 @@ snapshotResult.error ||
         <View style={styles.statusCard}>
           <View style={styles.statusDot} />
           <View style={{flex: 1}}>
-            <Text style={styles.statusTitle}>Monitoring online</Text>
-            <Text style={styles.statusText}>Last data received: {timeLabel(lastChecked)}</Text>
+            <Text style={styles.statusTitle}>Supplier price overview</Text>
+            <Text style={styles.statusText}>Cashbuild is monitored automatically. Other suppliers can show manual or promotion prices.</Text>
           </View>
         </View>
 
         <View style={styles.statsRow}>
           <StatCard value={products.length} label="Products" />
-          <StatCard value={dashboardSuppliers.length} label="Website monitor" />
-          <StatCard value={latest.size} label="Live prices" />
+          <StatCard value={suppliers.length} label="Suppliers" />
+          <StatCard value={latest.size + manualPrices.length} label="Current prices" />
         </View>
 
-        <Text style={styles.sectionTitle}>Cashbuild Howick prices</Text>
+        <Text style={styles.sectionTitle}>All supplier prices</Text>
+        <Text style={styles.pageIntro}>One product card shows the current price from every configured supplier.</Text>
+
         {products.map(product => (
-          <View key={product.id} style={styles.productCard}>
-            <Text style={styles.productName}>{product.name}</Text>
-            <Text style={styles.unit}>{product.unit}</Text>
-            {dashboardSuppliers.map(supplier => {
-              const row = currentPriceRow(supplier.id, product.id);
-              const pct = priceChange(supplier.id, product.id);
-              return (
-                <View key={supplier.id} style={styles.priceRow}>
-                  <View style={{flex: 1}}>
-                    <Text style={styles.supplierName}>{supplier.name}</Text>
-                    <Text style={styles.checked}>{timeLabel(row?.checked_at)}</Text>
+          <View key={product.id} style={styles.dashboardProductCard}>
+            <View style={styles.dashboardProductHeader}>
+              <View style={{flex: 1}}>
+                <Text style={styles.productName}>{product.name}</Text>
+                <Text style={styles.unit}>{product.unit}</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setHistoryProductId(product.id); setHistorySupplierId(null); setTab('history'); }}>
+                <Text style={styles.dashboardHistoryLink}>HISTORY ›</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.dashboardPriceGrid}>
+              {suppliers.map(supplier => {
+                const row = currentPriceRow(supplier.id, product.id);
+                const pct = priceChange(supplier.id, product.id);
+                const isManual = row?.source_type === 'manual';
+                return (
+                  <View key={supplier.id} style={styles.dashboardSupplierCell}>
+                    <Text style={styles.dashboardSupplierName} numberOfLines={2}>{supplier.name}</Text>
+                    <Text style={[styles.dashboardSupplierPrice, isManual && styles.manualPrice]}>{money(row?.price)}</Text>
+                    {isManual ? <Text style={styles.dashboardManualBadge}>MANUAL</Text> : null}
+                    {!isManual && row?.price != null ? renderChange(pct, true) : null}
                   </View>
-                  <View style={styles.priceRight}>
-                    <Text style={[styles.price, row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text>
-                    {row?.source_type === 'manual' ? <Text style={styles.manualBadgeText}>MANUAL</Text> : null}
-                    {(() => {
-                      const status = priceStatusForRow(row);
-                      return status ? (
-                        <View style={[styles.validityBadge, {backgroundColor: status.background}]}>
-                          <Text style={[styles.validityBadgeText, {color: status.color}]}>{status.label}</Text>
-                        </View>
-                      ) : null;
-                    })()}
-                    {renderChange(pct, true)}
-                  </View>
-                </View>
-              );
-            })}
+                );
+              })}
+            </View>
           </View>
         ))}
 
         <Text style={styles.sectionTitle}>Supplier monitoring status</Text>
-        {dashboardSuppliers.map(supplier => {
+        {suppliers.map(supplier => {
           const results = Array.isArray(latestRun?.results) ? latestRun.results.filter(result => result.supplier === supplier.name) : [];
           const hasError = results.some(result => result.status === 'error');
           const hasPrice = results.some(result => ['updated', 'price_changed', 'initial_price', 'unchanged'].includes(result.status));
           const hasNotFound = results.some(result => result.status === 'price_not_found');
-          const status = hasError ? 'ERROR' : hasPrice ? 'PRICE FOUND' : hasNotFound ? 'CHECKED · NO PRICE FOUND' : 'NO SOURCE CONFIGURED';
+          const status = hasError ? 'ERROR' : hasPrice ? 'PRICE FOUND' : hasNotFound ? 'CHECKED · NO PRICE FOUND' : 'SOCIAL / MANUAL';
           const statusStyle = hasError ? styles.monitorError : hasPrice ? styles.monitorGood : styles.monitorWarn;
           return (
             <View key={supplier.id} style={styles.monitorRow}>
@@ -669,37 +700,188 @@ snapshotResult.error ||
     );
   };
 
-  const renderHistory = () => (
-    <>
-      <Text style={styles.sectionTitle}>Price history</Text>
-      <Text style={styles.pageIntro}>Recent recorded prices, newest first.</Text>
-      {products.map(product => {
-        const entries = [];
-        for (const supplier of suppliers) {
-          const rows = historyByKey.get(`${supplier.id}|${product.id}`) || [];
-          rows.slice(0, 8).forEach(row => entries.push({row, supplier}));
-        }
-        entries.sort((a, b) => new Date(b.row.checked_at) - new Date(a.row.checked_at));
-        return (
-          <View key={product.id} style={styles.productCard}>
-            <Text style={styles.productName}>{product.name}</Text>
-            <Text style={styles.unit}>{product.unit}</Text>
-            {entries.length === 0 ? (
-              <Text style={styles.noData}>No history available yet.</Text>
-            ) : entries.slice(0, 12).map((entry, index) => (
-              <View key={entry.row.id || index} style={styles.historyRow}>
-                <View style={{flex: 1}}>
-                  <Text style={styles.supplierName}>{entry.supplier.name}</Text>
-                  <Text style={styles.checked}>{timeLabel(entry.row.checked_at)}</Text>
+  const renderHistory = () => {
+    const selectedProduct = products.find(product => product.id === historyProductId);
+
+    if (!selectedProduct) {
+      return (
+        <>
+          <Text style={styles.sectionTitle}>Price history</Text>
+          <Text style={styles.pageIntro}>Select a product to see its price history by supplier.</Text>
+          {products.map(product => {
+            const availableCount = suppliers.filter(supplier => {
+              const automated = historyByKey.get(`${supplier.id}|${product.id}`) || [];
+              const manual = manualHistoryByKey.get(`${supplier.id}|${product.id}`) || [];
+              return automated.length > 0 || manual.length > 0;
+            }).length;
+            const imageResource = productImageResource(product);
+            return (
+              <TouchableOpacity
+                key={product.id}
+                activeOpacity={0.82}
+                style={styles.historyProductCard}
+                onPress={() => { setHistoryProductId(product.id); setHistorySupplierId(null); }}>
+                <View style={styles.historyProductImageWrap}>
+                  {imageResource ? (
+                    <Image source={{uri: imageResource}} style={styles.historyProductImage} resizeMode="contain" accessibilityLabel={product.name} />
+                  ) : (
+                    <View style={styles.historyProductImageFallback}><Text style={styles.productImageFallbackText}>PRICE</Text></View>
+                  )}
                 </View>
-                <Text style={styles.price}>{money(entry.row.price)}</Text>
-              </View>
-            ))}
+                <View style={{flex: 1}}>
+                  <Text style={styles.productName}>{product.name}</Text>
+                  <Text style={styles.unit}>{product.unit}</Text>
+                  <Text style={styles.historyMeta}>{availableCount} supplier{availableCount === 1 ? '' : 's'} with recorded prices</Text>
+                </View>
+                <Text style={styles.historyArrow}>›</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </>
+      );
+    }
+
+    const selectedSupplier = historySupplierId ? suppliers.find(supplier => supplier.id === historySupplierId) : null;
+    const supplierTabs = [{id: null, name: 'ALL STORES'}, ...suppliers];
+    const automatedRows = selectedSupplier
+      ? (historyByKey.get(`${selectedSupplier.id}|${selectedProduct.id}`) || [])
+      : [];
+    const manualRows = selectedSupplier
+      ? (manualHistoryByKey.get(`${selectedSupplier.id}|${selectedProduct.id}`) || [])
+      : [];
+
+    const historyRows = [...automatedRows.map(row => ({...row, historySource: 'automated', historyTime: row.checked_at})),
+      ...manualRows.map(row => ({...row, historySource: 'manual', historyTime: row.recorded_at}))]
+      .sort((a, b) => new Date(b.historyTime) - new Date(a.historyTime));
+
+    const allCurrent = suppliers.map(supplier => ({
+      supplier,
+      row: currentPriceRow(supplier.id, selectedProduct.id),
+    }));
+
+    const chartRows = historyRows.slice(0, 12).reverse();
+    const chartValues = chartRows.map(row => Number(row.price)).filter(Number.isFinite);
+    const minPrice = chartValues.length ? Math.min(...chartValues) : 0;
+    const maxPrice = chartValues.length ? Math.max(...chartValues) : 1;
+    const spread = Math.max(maxPrice - minPrice, 0.01);
+
+    return (
+      <>
+        <TouchableOpacity style={styles.compareBackButton} onPress={() => setHistoryProductId(null)}>
+          <Text style={styles.compareBackText}>‹ BACK TO PRODUCTS</Text>
+        </TouchableOpacity>
+
+        <View style={styles.historyDetailHeader}>
+          <View style={styles.historyDetailImageWrap}>
+            {productImageResource(selectedProduct) ? (
+              <Image source={{uri: productImageResource(selectedProduct)}} style={styles.historyDetailImage} resizeMode="contain" />
+            ) : null}
           </View>
-        );
-      })}
-    </>
-  );
+          <View style={{flex: 1}}>
+            <Text style={styles.historyDetailTitle}>{selectedProduct.name}</Text>
+            <Text style={styles.unit}>{selectedProduct.unit} · price history</Text>
+          </View>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.historyTabsScroll}>
+          {supplierTabs.map(supplier => (
+            <TouchableOpacity
+              key={supplier.id || 'all'}
+              style={[styles.historyTab, historySupplierId === supplier.id && styles.historyTabActive]}
+              onPress={() => setHistorySupplierId(supplier.id)}>
+              <Text style={[styles.historyTabText, historySupplierId === supplier.id && styles.historyTabTextActive]}>
+                {supplier.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {selectedSupplier ? (
+          <>
+            <View style={styles.historyCurrentCard}>
+              <View style={{flex: 1}}>
+                <Text style={styles.historyCurrentSupplier}>{selectedSupplier.name}</Text>
+                <Text style={styles.checked}>{historyRows.length ? `${historyRows.length} recorded price event${historyRows.length === 1 ? '' : 's'}` : 'No recorded history yet'}</Text>
+              </View>
+              <Text style={[styles.historyCurrentPrice, currentPriceRow(selectedSupplier.id, selectedProduct.id)?.source_type === 'manual' && styles.manualPrice]}>
+                {money(currentPriceRow(selectedSupplier.id, selectedProduct.id)?.price)}
+              </Text>
+            </View>
+
+            {historyRows.length ? (
+              <>
+                <Text style={styles.historyChartTitle}>PRICE HISTORY</Text>
+                <View style={styles.historyChart}>
+                  {chartRows.map((row, index) => {
+                    const height = 18 + ((Number(row.price) - minPrice) / spread) * 82;
+                    return (
+                      <View key={row.id || `${row.historyTime}-${index}`} style={styles.historyChartColumn}>
+                        <Text style={styles.historyChartPrice}>{money(row.price)}</Text>
+                        <View style={styles.historyChartTrack}>
+                          <View style={[styles.historyChartBar, {height: Math.max(18, Math.min(100, height))}, row.historySource === 'manual' && styles.historyChartBarManual]} />
+                        </View>
+                        <Text style={styles.historyChartDate}>{timeLabel(row.historyTime)}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                <View style={styles.historyTableCard}>
+                  <View style={styles.historyTableHeader}>
+                    <Text style={styles.historyTableHeaderText}>DATE</Text>
+                    <Text style={styles.historyTableHeaderText}>PRICE</Text>
+                    <Text style={styles.historyTableHeaderText}>CHANGE</Text>
+                  </View>
+                  {historyRows.slice(0, 12).map((row, index) => {
+                    const previousRow = historyRows[index + 1];
+                    const change = previousRow ? Number(row.price) - Number(previousRow.price) : null;
+                    return (
+                      <View key={row.id || index} style={styles.historyTableRow}>
+                        <View style={{flex: 1}}>
+                          <Text style={styles.historyTableDate}>{timeLabel(row.historyTime)}</Text>
+                          <Text style={styles.historySourceLabel}>{row.historySource === 'manual' ? 'MANUAL' : 'MONITORED'}</Text>
+                        </View>
+                        <Text style={[styles.historyTablePrice, row.historySource === 'manual' && styles.manualPrice]}>{money(row.price)}</Text>
+                        <Text style={[styles.historyTableChange, change != null && change < 0 ? styles.changeDown : change != null && change > 0 ? styles.changeUp : null]}>
+                          {change == null ? '—' : `${change > 0 ? '▲ ' : change < 0 ? '▼ ' : ''}${money(Math.abs(change))}`}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            ) : (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>No history for this supplier yet</Text>
+                <Text style={styles.emptyText}>A price will appear here when PriceWatch records a monitored value or you enter a manual price.</Text>
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            <Text style={styles.historyChartTitle}>CURRENT SUPPLIER BREAKDOWN</Text>
+            <View style={styles.historyAllStoresCard}>
+              {allCurrent.map(({supplier, row}) => (
+                <TouchableOpacity key={supplier.id} style={styles.historyAllStoreRow} onPress={() => setHistorySupplierId(supplier.id)}>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.supplierName}>{supplier.name}</Text>
+                    <Text style={styles.checked}>{row?.source_type === 'manual' ? 'MANUAL INPUT' : row?.price != null ? 'MONITORED PRICE' : 'NO PRICE RECORDED'}</Text>
+                  </View>
+                  <Text style={[styles.historyAllStorePrice, row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text>
+                  <Text style={styles.historyArrow}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.legendCard}>
+              <Text style={styles.legendTitle}>History colour key</Text>
+              <Text style={styles.legendText}>RED = monitored current price</Text>
+              <Text style={styles.manualLegendText}>CYAN = manual price / manual history</Text>
+            </View>
+          </>
+        )}
+      </>
+    );
+  };
 
   const renderProducts = () => (
     <>
@@ -1008,6 +1190,50 @@ const styles = StyleSheet.create({
   monitorWarn: {fontSize: 9, fontWeight: '900', color: '#F5BE28', textAlign: 'right'},
   monitorError: {fontSize: 9, fontWeight: '900', color: '#ff7777', textAlign: 'right'},
   historyRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#2a2f36', marginTop: 7},
+  dashboardProductCard: {backgroundColor: '#111419', borderRadius: 16, padding: 14, marginBottom: 11, borderWidth: 1, borderColor: '#1f242c'},
+  dashboardProductHeader: {flexDirection: 'row', alignItems: 'center', marginBottom: 7},
+  dashboardHistoryLink: {fontSize: 9, fontWeight: '900', color: '#F5BE28'},
+  dashboardPriceGrid: {flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: '#2a2f36'},
+  dashboardSupplierCell: {width: '50%', minHeight: 74, paddingVertical: 10, paddingRight: 10, borderBottomWidth: 1, borderBottomColor: '#20252b'},
+  dashboardSupplierName: {fontSize: 10, lineHeight: 13, color: '#aeb5bd', fontWeight: '800'},
+  dashboardSupplierPrice: {fontSize: 19, fontWeight: '900', color: '#ff3340', marginTop: 4},
+  dashboardManualBadge: {fontSize: 7, fontWeight: '900', color: '#4FC3F7', marginTop: 1},
+  historyProductCard: {backgroundColor: '#111419', borderRadius: 16, borderWidth: 1, borderColor: '#1f242c', padding: 13, marginBottom: 10, flexDirection: 'row', alignItems: 'center'},
+  historyProductImageWrap: {width: 78, height: 78, marginRight: 12, alignItems: 'center', justifyContent: 'center'},
+  historyProductImage: {width: 74, height: 74},
+  historyProductImageFallback: {width: 62, height: 62, borderRadius: 12, backgroundColor: '#181d24', alignItems: 'center', justifyContent: 'center'},
+  historyMeta: {fontSize: 10, color: '#747d87', marginTop: 6},
+  historyArrow: {fontSize: 28, color: '#F5BE28', fontWeight: '700', marginLeft: 8},
+  historyDetailHeader: {minHeight: 112, padding: 12, borderRadius: 16, backgroundColor: '#111419', borderWidth: 1, borderColor: '#1f242c', flexDirection: 'row', alignItems: 'center', marginBottom: 10},
+  historyDetailImageWrap: {width: 86, height: 86, alignItems: 'center', justifyContent: 'center', marginRight: 12},
+  historyDetailImage: {width: 82, height: 82},
+  historyDetailTitle: {fontSize: 19, lineHeight: 23, fontWeight: '900', color: '#fff'},
+  historyTabsScroll: {marginBottom: 10},
+  historyTab: {backgroundColor: '#1d2127', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 9, marginRight: 7, borderWidth: 1, borderColor: '#2a3037'},
+  historyTabActive: {backgroundColor: '#3a2f12', borderColor: '#F5BE28'},
+  historyTabText: {fontSize: 9, fontWeight: '900', color: '#aeb4bc'},
+  historyTabTextActive: {color: '#F5BE28'},
+  historyCurrentCard: {backgroundColor: '#111419', borderRadius: 14, padding: 13, flexDirection: 'row', alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#1f242c'},
+  historyCurrentSupplier: {fontSize: 14, fontWeight: '900', color: '#fff'},
+  historyCurrentPrice: {fontSize: 25, fontWeight: '900', color: '#ff3340'},
+  historyChartTitle: {fontSize: 10, fontWeight: '900', color: '#F5BE28', letterSpacing: 1.1, marginBottom: 7},
+  historyChart: {height: 154, backgroundColor: '#111419', borderRadius: 14, padding: 10, flexDirection: 'row', alignItems: 'flex-end', borderWidth: 1, borderColor: '#1f242c', marginBottom: 12},
+  historyChartColumn: {flex: 1, height: 132, alignItems: 'center', justifyContent: 'flex-end', minWidth: 44},
+  historyChartPrice: {fontSize: 7, color: '#cbd1d7', marginBottom: 4},
+  historyChartTrack: {height: 100, width: 18, justifyContent: 'flex-end', backgroundColor: '#181d24', borderRadius: 5, overflow: 'hidden'},
+  historyChartBar: {width: '100%', backgroundColor: '#FF3340', borderRadius: 5},
+  historyChartBarManual: {backgroundColor: '#4FC3F7'},
+  historyChartDate: {fontSize: 7, color: '#707983', marginTop: 5, transform: [{rotate: '-35deg'}], width: 52, textAlign: 'center'},
+  historyTableCard: {backgroundColor: '#111419', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#1f242c'},
+  historyTableHeader: {flexDirection: 'row', paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#2a2f36'},
+  historyTableHeaderText: {flex: 1, fontSize: 8, fontWeight: '900', color: '#7f8790'},
+  historyTableRow: {flexDirection: 'row', alignItems: 'center', minHeight: 48, borderBottomWidth: 1, borderBottomColor: '#20252b'},
+  historyTableDate: {fontSize: 10, color: '#dce1e6', fontWeight: '700'},
+  historySourceLabel: {fontSize: 7, color: '#6f7882', marginTop: 2, fontWeight: '900'},
+  historyTablePrice: {flex: 1, textAlign: 'center', fontSize: 14, fontWeight: '900', color: '#ff3340'},
+  historyTableChange: {flex: 1, textAlign: 'right', fontSize: 10, fontWeight: '900', color: '#8d959e'},
+  historyAllStoresCard: {backgroundColor: '#111419', borderRadius: 14, paddingHorizontal: 12, borderWidth: 1, borderColor: '#1f242c', marginBottom: 10},
+  historyAllStoreRow: {flexDirection: 'row', alignItems: 'center', minHeight: 61, borderBottomWidth: 1, borderBottomColor: '#20252b'},
   simpleCard: {backgroundColor: '#111419', borderRadius: 15, padding: 16, marginBottom: 10},
   smallText: {fontSize: 13, lineHeight: 19, color: '#b8bec5', marginTop: 10},
   link: {fontSize: 13, fontWeight: '800', color: '#F5BE28', marginTop: 12},
