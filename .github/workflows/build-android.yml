@@ -25,6 +25,7 @@ jobs:
 
       - name: Generate Android shell
         run: |
+          python3 -m pip install --quiet pillow
           rm -rf PriceWatchNative android
           npx @react-native-community/cli@20.0.1 init PriceWatchNative --version 0.81.5 --skip-install
           rm -rf PriceWatchNative/src PriceWatchNative/App.tsx PriceWatchNative/App.js PriceWatchNative/index.js
