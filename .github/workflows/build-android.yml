@@ -53,12 +53,10 @@ jobs:
           arch: x86_64
           profile: pixel_2
           script: |
-            set +e
-            adb install -r android/app/build/outputs/apk/release/app-release.apk
-            adb shell am force-stop com.pricewatch.app
-            ACTIVITY=$(adb shell cmd package resolve-activity --brief com.pricewatch.app | tail -n 1 | tr -d '\r')
-            echo "Resolved activity: $ACTIVITY"
-            adb shell am start -n "$ACTIVITY"
+            adb install -r android/app/build/outputs/apk/release/app-release.apk || true
+            adb shell am force-stop com.pricewatch.app || true
+            mkdir -p smoke-diagnostics
+            adb shell monkey -p com.pricewatch.app 1 > smoke-diagnostics/monkey.txt 2>&1 || true
             sleep 12
             PID=$(adb shell pidof com.pricewatch.app | tr -d '\r')
             if [ -n "$PID" ]; then
@@ -68,11 +66,10 @@ jobs:
               echo "FAIL" > smoke-result.txt
               echo "Price Watch process is NOT running"
             fi
-            mkdir -p smoke-diagnostics
-            adb logcat -d -t 1200 > smoke-diagnostics/logcat.txt
-            adb shell ls -la /sdcard/Android/data/com.pricewatch.app/files/PriceWatch > smoke-diagnostics/diagnostic-list.txt 2>&1
-            adb shell cat /sdcard/Android/data/com.pricewatch.app/files/PriceWatch/pricewatch_startup.log > smoke-diagnostics/pricewatch_startup.log 2>&1
-            adb shell dumpsys package com.pricewatch.app > smoke-diagnostics/package.txt 2>&1
+            adb logcat -d -t 1200 > smoke-diagnostics/logcat.txt 2>&1 || true
+            adb shell ls -la /sdcard/Android/data/com.pricewatch.app/files/PriceWatch > smoke-diagnostics/diagnostic-list.txt 2>&1 || true
+            adb shell cat /sdcard/Android/data/com.pricewatch.app/files/PriceWatch/pricewatch_startup.log > smoke-diagnostics/pricewatch_startup.log 2>&1 || true
+            adb shell dumpsys package com.pricewatch.app > smoke-diagnostics/package.txt 2>&1 || true
             echo "Smoke result: $(cat smoke-result.txt)"
             exit 0
 
