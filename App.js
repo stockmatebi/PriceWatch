@@ -20,7 +20,7 @@ const money = value => (value == null ? '—' : `R${Number(value).toFixed(2)}`);
 const productImageResource = product => {
   const name = String(product?.name || '').toLowerCase();
   if (name.includes('npc original blue')) return 'pw_npc_blue';
-  if (name.includes('npc original black')) return 'pw_npc_black';
+  if (name.includes('npc original black')) return 'https://www.hyperhardware.co.za/wp-content/uploads/2025/02/Untitled-design-2025-02-08T112703.893.png';
   if (name.includes('double roman')) return 'pw_double_roman';
   if (name.includes('m140') || name.includes('m150')) return 'pw_m150';
   return null;
