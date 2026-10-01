@@ -137,12 +137,41 @@ manifest = ANDROID / "app" / "src" / "main" / "AndroidManifest.xml"
 text = manifest.read_text()
 text = re.sub(r'android:icon="[^"]+"', 'android:icon="@mipmap/ic_launcher"', text, count=1)
 text = re.sub(r'android:roundIcon="[^"]+"', 'android:roundIcon="@mipmap/ic_launcher"', text, count=1)
+text = re.sub(r'android:name="\\.MainApplication"', 'android:name="com.pricewatch.app.MainApplication"', text)
+text = re.sub(r'android:name="\\.MainActivity"', 'android:name="com.pricewatch.app.MainActivity"', text)
 manifest.write_text(text)
 
-main_apps = list((ANDROID / "app" / "src" / "main" / "java").rglob("MainApplication.kt"))
+java_root = ANDROID / "app" / "src" / "main" / "java"
+old_pkg = java_root / "com" / "pricewatchnative"
+new_pkg = java_root / "com" / "pricewatch" / "app"
+if old_pkg.exists():
+    new_pkg.parent.mkdir(parents=True, exist_ok=True)
+    if new_pkg.exists():
+        shutil.rmtree(new_pkg)
+    shutil.move(str(old_pkg), str(new_pkg))
+
+main_apps = list(java_root.rglob("MainApplication.kt"))
 if not main_apps:
     raise RuntimeError("MainApplication.kt not found")
 main_app = main_apps[0]
+
+main_activity = new_pkg / "MainActivity.kt"
+main_activity.write_text(
+    '''package com.pricewatch.app
+
+import com.facebook.react.ReactActivity
+import com.facebook.react.ReactActivityDelegate
+import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
+import com.facebook.react.defaults.DefaultReactActivityDelegate
+
+class MainActivity : ReactActivity() {
+    override fun getMainComponentName(): String = "PriceWatch"
+
+    override fun createReactActivityDelegate(): ReactActivityDelegate =
+        DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
+}
+'''
+)
 
 main_app.write_text(
     '''package com.pricewatch.app
