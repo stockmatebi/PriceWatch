@@ -63,6 +63,17 @@ s = s.replace('applicationId "com.pricewatchnative"', 'applicationId "com.pricew
 s = s.replace("applicationId 'com.pricewatchnative'", "applicationId 'com.pricewatch.app'")
 build_gradle.write_text(s)
 
+# Keep this shell on the classic React Native host path. The generated 0.81.5
+# template can enable bridgeless/new-architecture flags that require ReactHost;
+# this app deliberately uses ReactNativeHost for maximum startup compatibility.
+gradle_props = ANDROID / "gradle.properties"
+gp = gradle_props.read_text() if gradle_props.exists() else ""
+if re.search(r"^newArchEnabled=.*$", gp, flags=re.MULTILINE):
+    gp = re.sub(r"^newArchEnabled=.*$", "newArchEnabled=false", gp, flags=re.MULTILINE)
+else:
+    gp += "\nnewArchEnabled=false\n"
+gradle_props.write_text(gp)
+
 for p in (ANDROID / "app" / "src" / "main" / "res").rglob("strings.xml"):
     text = p.read_text()
     text = re.sub(
