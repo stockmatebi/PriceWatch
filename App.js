@@ -214,7 +214,7 @@ function PriceWatchApp() {
         <View style={styles.hero}>
           <View style={{flex: 1}}>
             <Text style={styles.eyebrow}>LIVE MONITORING</Text>
-            <Text style={styles.heroTitle}>Price Watch</Text>
+            <Text style={styles.heroTitle}>PriceWatch</Text>
             <Text style={styles.heroText}>Competitor prices monitored from configured sources.</Text>
           </View>
           <TouchableOpacity style={styles.refreshButton} onPress={() => { setRefreshing(true); loadData(); }}>
@@ -468,10 +468,14 @@ function PriceWatchApp() {
     <View style={[styles.safe, {paddingTop: insets.top, paddingBottom: insets.bottom}]}>
       <StatusBar barStyle="light-content" backgroundColor="#121417" />
       <View style={styles.container}>
-        <View style={styles.topBar}>
-          <View>
-            <Text style={styles.logo}>PRICE WATCH</Text>
-            <Text style={styles.topSubtitle}>{tabTitle} · Competitor intelligence</Text>
+        <View style={styles.brandBlock}>
+            <View style={styles.logoMark}>
+              <Text style={styles.logoMarkText}>PW</Text>
+            </View>
+            <View>
+              <Text style={styles.logo}>PriceWatch</Text>
+              <Text style={styles.topSubtitle}>{tabTitle} · Competitor intelligence</Text>
+            </View>
           </View>
           <View style={styles.livePill}>
             <View style={styles.statusDotSmall} />
@@ -544,7 +548,10 @@ const styles = StyleSheet.create({
   safe: {flex: 1, backgroundColor: '#121417'},
   container: {flex: 1, backgroundColor: '#121417'},
   topBar: {paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#252a31'},
-  logo: {fontSize: 20, fontWeight: '900', color: '#F5BE28', letterSpacing: 2},
+  brandBlock: {flexDirection: 'row', alignItems: 'center'},
+  logoMark: {width: 34, height: 34, borderRadius: 9, backgroundColor: '#F5BE28', alignItems: 'center', justifyContent: 'center', marginRight: 9},
+  logoMarkText: {fontSize: 12, fontWeight: '900', color: '#121417', letterSpacing: 0.5},
+  logo: {fontSize: 20, fontWeight: '900', color: '#F5BE28', letterSpacing: 0.5},
   topSubtitle: {fontSize: 11, color: '#8e969f', marginTop: 3},
   livePill: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#1d2127', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 7},
   statusDotSmall: {width: 7, height: 7, borderRadius: 4, backgroundColor: '#57c878', marginRight: 6},
