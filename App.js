@@ -47,13 +47,15 @@ function PriceWatchApp() {
   const [products, setProducts] = useState([]);
   const [snapshots, setSnapshots] = useState([]);
   const [promotions, setPromotions] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [latestRun, setLatestRun] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
   const loadData = useCallback(async () => {
     setError('');
-    const [supplierResult, productResult, snapshotResult, promotionResult] =
+    const [supplierResult, productResult, snapshotResult, promotionResult, alertResult, runResult] =
       await Promise.all([
         supabase.from('pw_suppliers').select('id,name,location,website_url').eq('active', true).order('name'),
         supabase.from('pw_products').select('id,name,category,unit').eq('active', true).order('name'),
@@ -68,13 +70,26 @@ function PriceWatchApp() {
           .eq('is_promotion', true)
           .order('detected_at', {ascending: false})
           .limit(50),
+        supabase
+          .from('pw_alerts')
+          .select('id,supplier_id,product_id,old_price,new_price,percentage_change,source_url,alert_type,detected_at')
+          .eq('alert_type', 'price_change')
+          .order('detected_at', {ascending: false})
+          .limit(30),
+        supabase
+          .from('pw_check_runs')
+          .select('id,started_at,finished_at,status,checked_count,updated_count,error_count,results')
+          .order('started_at', {ascending: false})
+          .limit(1),
       ]);
 
     const firstError =
       supplierResult.error ||
       productResult.error ||
       snapshotResult.error ||
-      promotionResult.error;
+      promotionResult.error ||
+      alertResult.error ||
+      runResult.error;
 
     if (firstError) {
       setError(firstError.message || 'Could not load Price Watch data.');
@@ -87,6 +102,8 @@ function PriceWatchApp() {
     setProducts(productResult.data || []);
     setSnapshots(snapshotResult.data || []);
     setPromotions(promotionResult.data || []);
+    setAlerts(alertResult.data || []);
+    setLatestRun(runResult.data?.[0] || null);
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -147,16 +164,11 @@ function PriceWatchApp() {
   };
 
   const renderDashboard = () => {
-    const changed = [];
-    for (const product of products) {
-      for (const supplier of suppliers) {
-        const pct = priceChange(supplier.id, product.id);
-        if (pct != null && Math.abs(pct) > 0.001) {
-          changed.push({product, supplier, pct, row: latest.get(`${supplier.id}|${product.id}`)});
-        }
-      }
-    }
-    changed.sort((a, b) => new Date(b.row.checked_at) - new Date(a.row.checked_at));
+    const changed = alerts.map(alert => ({
+      alert,
+      product: products.find(product => product.id === alert.product_id),
+      supplier: suppliers.find(supplier => supplier.id === alert.supplier_id),
+    })).filter(item => item.product && item.supplier);
 
     return (
       <>
@@ -182,7 +194,7 @@ function PriceWatchApp() {
         <View style={styles.statsRow}>
           <StatCard value={products.length} label="Products" />
           <StatCard value={suppliers.length} label="Suppliers" />
-          <StatCard value={snapshots.length} label="Price checks" />
+          <StatCard value={latest.size} label="Live prices" />
         </View>
 
         <Text style={styles.sectionTitle}>Current prices</Text>
@@ -208,6 +220,25 @@ function PriceWatchApp() {
             })}
           </View>
         ))}
+
+        <Text style={styles.sectionTitle}>Supplier monitoring status</Text>
+        {suppliers.map(supplier => {
+          const results = Array.isArray(latestRun?.results) ? latestRun.results.filter(result => result.supplier === supplier.name) : [];
+          const hasError = results.some(result => result.status === 'error');
+          const hasPrice = results.some(result => ['updated', 'price_changed', 'initial_price', 'unchanged'].includes(result.status));
+          const hasNotFound = results.some(result => result.status === 'price_not_found');
+          const status = hasError ? 'ERROR' : hasPrice ? 'PRICE FOUND' : hasNotFound ? 'CHECKED · NO PRICE FOUND' : 'NO SOURCE CONFIGURED';
+          const statusStyle = hasError ? styles.monitorError : hasPrice ? styles.monitorGood : styles.monitorWarn;
+          return (
+            <View key={supplier.id} style={styles.monitorRow}>
+              <View style={{flex: 1}}>
+                <Text style={styles.supplierName}>{supplier.name}</Text>
+                <Text style={styles.checked}>{results.length ? timeLabel(latestRun?.finished_at) : 'Not checked'}</Text>
+              </View>
+              <Text style={statusStyle}>{status}</Text>
+            </View>
+          );
+        })}
 
         <Text style={styles.sectionTitle}>Recent price changes</Text>
         {changed.length === 0 ? (
@@ -468,6 +499,10 @@ const styles = StyleSheet.create({
   compareRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderTopWidth: 1, borderTopColor: '#2a2f36', marginTop: 8},
   lowestPrice: {color: '#57d58a'},
   lowestLabel: {fontSize: 8, fontWeight: '900', color: '#57d58a', marginTop: 2},
+  monitorRow: {backgroundColor: '#1d2127', borderRadius: 13, padding: 13, marginBottom: 7, flexDirection: 'row', alignItems: 'center'},
+  monitorGood: {fontSize: 9, fontWeight: '900', color: '#57d58a', textAlign: 'right'},
+  monitorWarn: {fontSize: 9, fontWeight: '900', color: '#F5BE28', textAlign: 'right'},
+  monitorError: {fontSize: 9, fontWeight: '900', color: '#ff7777', textAlign: 'right'},
   historyRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#2a2f36', marginTop: 7},
   simpleCard: {backgroundColor: '#1d2127', borderRadius: 15, padding: 16, marginBottom: 10},
   smallText: {fontSize: 13, lineHeight: 19, color: '#b8bec5', marginTop: 10},
