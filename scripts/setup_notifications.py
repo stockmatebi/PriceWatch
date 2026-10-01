@@ -31,12 +31,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object PriceWatchNotifications {
-    private const val CHANNEL_ID = "price_watch_alerts_v2"
+    private const val CHANNEL_ID = "price_watch_alerts_v3"
     private const val PREFS = "price_watch_notifications"
     private const val LAST_ALERT = "last_alert_seen"
     private const val LAST_PROMO = "last_promotion_seen"
     private const val ACTION_CHECK = "com.pricewatchnative.CHECK_NOTIFICATIONS"
-    private const val INTERVAL_MS = 30L * 60L * 1000L
+    private const val INTERVAL_MS = 15L * 60L * 1000L
     private const val SUPABASE_URL = "https://iymwzyxlvtyidebxdzyw.supabase.co"
     private const val SUPABASE_KEY = "sb_publishable_7_ms0zNP3-ZEX8tDJtyvWw_jqTMs0AP"
 
@@ -46,7 +46,7 @@ object PriceWatchNotifications {
         val intent = Intent(context, PriceWatchNotificationReceiver::class.java).setAction(ACTION_CHECK)
         val pending = PendingIntent.getBroadcast(context, 7711, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         alarmManager.cancel(pending)
-        alarmManager.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 60_000L, INTERVAL_MS, pending)
+        alarmManager.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 30_000L, INTERVAL_MS, pending)
     }
 
     fun handle(context: Context, action: String?) {
