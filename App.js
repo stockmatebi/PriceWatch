@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Linking,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {supabase} from './lib/supabase';
 
 const money = value => (value == null ? '—' : `R${Number(value).toFixed(2)}`);
@@ -28,6 +28,15 @@ const timeLabel = value => {
 };
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <PriceWatchApp />
+    </SafeAreaProvider>
+  );
+}
+
+function PriceWatchApp() {
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('dashboard');
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -208,7 +217,7 @@ export default function App() {
   );
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={[styles.safe, {paddingTop: insets.top, paddingBottom: insets.bottom}]}>
       <StatusBar barStyle="light-content" backgroundColor="#121417" />
       <View style={styles.container}>
         <View style={styles.topBar}>
@@ -265,7 +274,7 @@ export default function App() {
           <NavButton label="Promotions" active={tab === 'promotions'} onPress={() => setTab('promotions')} />
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
