@@ -468,7 +468,8 @@ function PriceWatchApp() {
     <View style={[styles.safe, {paddingTop: insets.top, paddingBottom: insets.bottom}]}>
       <StatusBar barStyle="light-content" backgroundColor="#121417" />
       <View style={styles.container}>
-        <View style={styles.brandBlock}>
+        <View style={styles.topBar}>
+          <View style={styles.brandBlock}>
             <View style={styles.logoMark}>
               <Text style={styles.logoMarkText}>PW</Text>
             </View>
