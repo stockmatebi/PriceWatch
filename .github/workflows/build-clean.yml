@@ -1,0 +1,51 @@
+name: Build Clean Price Watch APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install dependencies
+        run: npm install
+      - name: Generate clean Android project
+        run: |
+          rm -rf android PriceWatchNative
+          npx @react-native-community/cli@20.0.1 init PriceWatchNative --version 0.81.5 --skip-install
+          rm -rf PriceWatchNative/src PriceWatchNative/App.tsx PriceWatchNative/App.js PriceWatchNative/index.js
+          cp App.js index.js app.json babel.config.js metro.config.js PriceWatchNative/
+          cp -R PriceWatchNative/android ./android
+          rm -rf PriceWatchNative
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('android/gradle.properties')
+          s=p.read_text()
+          import re
+          for k in ('newArchEnabled','bridgelessEnabled'):
+              s=re.sub(r'^'+k+r'=.*$',k+'=false',s,flags=re.M)
+          if 'newArchEnabled=' not in s: s+='\nnewArchEnabled=false\n'
+          if 'bridgelessEnabled=' not in s: s+='bridgelessEnabled=false\n'
+          p.write_text(s)
+          PY
+      - name: Build release APK
+        run: cd android && ./gradlew :app:assembleRelease --no-daemon
+      - name: Inspect APK
+        run: |
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -name aapt2 -type f | sort -V | tail -1)
+          "$AAPT2" dump badging android/app/build/outputs/apk/release/app-release.apk | grep -E "package:|launchable-activity:|application-label:"
+          test -s android/app/build/outputs/apk/release/app-release.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PriceWatch-Clean-APK
+          path: android/app/build/outputs/apk/release/app-release.apk
