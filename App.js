@@ -98,7 +98,7 @@ function PriceWatchApp() {
           .limit(500),
         supabase
           .from('pw_promotions')
-          .select('id,supplier_id,platform,title,text,image_url,post_url,posted_at,detected_at,ai_summary,is_promotion,confidence,valid_from,valid_until,validity_type,validity_text,validity_confidence')
+          .select('id,supplier_id,platform,title,text,image_url,post_url,posted_at,detected_at,ai_summary,ai_extraction,is_promotion,confidence,valid_from,valid_until,validity_type,validity_text,validity_confidence')
           .eq('is_promotion', true)
           .order('detected_at', {ascending: false})
           .limit(50),
@@ -428,9 +428,19 @@ function PriceWatchApp() {
         </View>
       ) : promotions.map(promotion => (
         <View key={promotion.id} style={styles.simpleCard}>
-          <Text style={styles.productName}>{promotion.title || 'Supplier promotion'}</Text>
+          <Text style={styles.productName}>{suppliers.find(s => s.id === promotion.supplier_id)?.name || 'Supplier promotion'}</Text>
           <Text style={styles.unit}>{promotion.platform || 'Source'} · {timeLabel(promotion.posted_at || promotion.detected_at)}</Text>
-          <Text style={styles.smallText}>{promotion.ai_summary || promotion.text || 'Promotion detected.'}</Text>
+          <Text style={styles.smallText}>{promotion.ai_summary || promotion.title || promotion.text || 'Promotion detected.'}</Text>
+          {Array.isArray(promotion.ai_extraction?.items) && promotion.ai_extraction.items.length > 0 ? (
+            <View style={styles.promotionItems}>
+              {promotion.ai_extraction.items.map((item, index) => (
+                <View key={index} style={styles.promotionItemRow}>
+                  <Text style={styles.promotionItemName}>{item.product_name || 'Special'}</Text>
+                  <Text style={styles.promotionItemPrice}>{item.price != null ? money(item.price) : 'Price not stated'}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
           {(() => {
             const status = getPromotionStatus(promotion);
             return status ? (
@@ -595,6 +605,10 @@ const styles = StyleSheet.create({
   promotionStatusCard: {borderRadius: 9, padding: 9, marginTop: 11},
   promotionStatusTitle: {fontSize: 10, fontWeight: '900'},
   promotionStatusText: {fontSize: 10, marginTop: 3, lineHeight: 14},
+  promotionItems: {marginTop: 10, borderTopWidth: 1, borderTopColor: '#30343a', paddingTop: 8},
+  promotionItemRow: {flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 4},
+  promotionItemName: {flex: 1, color: '#f1f3f5', fontSize: 14, fontWeight: '600'},
+  promotionItemPrice: {color: '#F5BE28', fontSize: 14, fontWeight: '800'},
   loading: {flex: 1, alignItems: 'center', justifyContent: 'center'},
   loadingText: {color: '#aeb4bc', marginTop: 12},
   errorCard: {margin: 16, padding: 18, borderRadius: 15, backgroundColor: '#2b1c1c'},
