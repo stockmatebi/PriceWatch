@@ -57,20 +57,22 @@ jobs:
           (res / 'drawable').mkdir(parents=True, exist_ok=True)
           (res / 'values').mkdir(parents=True, exist_ok=True)
 
-          (res / 'drawable/pricewatch_launcher_foreground.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
+          logo_vector = '''<?xml version="1.0" encoding="utf-8"?>
           <vector xmlns:android="http://schemas.android.com/apk/res/android"
               android:width="108dp"
               android:height="108dp"
               android:viewportWidth="108"
               android:viewportHeight="108">
-              <path android:strokeColor="#121417" android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="@android:color/transparent"
-                    android:pathData="M14,18 L94,18 L94,90 L14,90 Z" />
-              <path android:strokeColor="#FF4545" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="@android:color/transparent"
-                    android:pathData="M22,70 L39,55 L52,63 L69,42 L87,27" />
-              <path android:fillColor="#FF4545" android:pathData="M79,26 L91,24 L88,37 Z" />
-              <path android:fillColor="#121417" android:pathData="M23,76 L23,86 L33,86 L33,76 Z" />
-              <path android:fillColor="#121417" android:pathData="M37,76 L37,86 L47,86 L47,76 Z" />
-          </vector>''')
+              <path android:fillColor="#12161C" android:pathData="M12,12 L96,12 L96,96 L12,96 Z" android:fillAlpha="0.0" />
+              <path android:strokeColor="#FF3340" android:strokeWidth="8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="@android:color/transparent"
+                    android:pathData="M20,76 L39,56 L52,65 L70,42 L88,24" />
+              <path android:fillColor="#FF3340" android:pathData="M78,23 L92,21 L88,36 Z" />
+              <path android:fillColor="#F5BE28" android:pathData="M63,17 L89,17 L89,39 L76,52 L63,39 Z" />
+              <path android:fillColor="#12161C" android:pathData="M69,23 L82,23 L82,31 L75,38 L69,32 Z" />
+              <path android:fillColor="#F5BE28" android:pathData="M18,77 L24,77 L24,83 L18,83 Z" />
+          </vector>'''
+          (res / 'drawable/pricewatch_launcher_foreground.xml').write_text(logo_vector)
+          (res / 'drawable/pricewatch_mark.xml').write_text(logo_vector)
 
           (res / 'mipmap-anydpi-v26/ic_launcher.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -86,8 +88,57 @@ jobs:
 
           (res / 'values/pricewatch_colors.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <color name="pricewatch_launcher_background">#F5BE28</color>
+              <color name="pricewatch_launcher_background">#08090D</color>
           </resources>''')
+          PY
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+          from PIL import Image
+          from collections import deque
+          import io, math
+
+          urls = {
+              'pw_npc_blue': 'https://res.cloudinary.com/agrimark/image/upload/q_auto/f_auto/c_pad%2Ch_570%2Cw_570/v1/uploads/assets/NPC-32-5-00ae90.png',
+              'pw_npc_black': 'https://www.hyperhardware.co.za/wp-content/uploads/2025/02/Untitled-design-2025-02-08T112703.893.png',
+              'pw_double_roman': 'https://www.cashbuild.co.za/32338-small_default/double-roman-roof-tile.jpg',
+              'pw_m150': 'https://killarneybrick.co.za/wp-content/uploads/2019/04/m150.jpg',
+          }
+
+          out = Path('android/app/src/main/res/drawable-nodpi')
+          out.mkdir(parents=True, exist_ok=True)
+
+          def remove_edge_background(im, threshold=34):
+              im = im.convert('RGBA')
+              px = im.load()
+              w, h = im.size
+              bg = px[0, 0][:3]
+              seen = bytearray(w * h)
+              q = deque([(0, 0)])
+              seen[0] = 1
+              def close(c):
+                  return math.sqrt(sum((int(c[i]) - int(bg[i])) ** 2 for i in range(3))) <= threshold
+              while q:
+                  x, y = q.popleft()
+                  px[x, y] = (px[x, y][0], px[x, y][1], px[x, y][2], 0)
+                  for nx, ny in ((x-1,y),(x+1,y),(x,y-1),(x,y+1)):
+                      if 0 <= nx < w and 0 <= ny < h:
+                          idx = ny*w + nx
+                          if not seen[idx] and close(px[nx,ny]):
+                              seen[idx] = 1
+                              q.append((nx,ny))
+              return im
+
+          for name, url in urls.items():
+              req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+              with urlopen(req, timeout=60) as response:
+                  data = response.read()
+              im = Image.open(io.BytesIO(data))
+              im.thumbnail((700, 700), Image.Resampling.LANCZOS)
+              im = remove_edge_background(im)
+              im.save(out / f'{name}.png', 'PNG', optimize=True)
+              print(f'Saved {name}.png: {im.size}')
           PY
           python3 - <<'PY'
           from pathlib import Path
