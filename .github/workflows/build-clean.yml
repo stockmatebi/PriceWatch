@@ -57,40 +57,70 @@ jobs:
           (res / 'drawable').mkdir(parents=True, exist_ok=True)
           (res / 'values').mkdir(parents=True, exist_ok=True)
 
-          logo_vector = '''<?xml version="1.0" encoding="utf-8"?>
-          <vector xmlns:android="http://schemas.android.com/apk/res/android"
-              android:width="108dp"
-              android:height="108dp"
-              android:viewportWidth="108"
-              android:viewportHeight="108">
-              <path android:fillColor="#12161C" android:pathData="M12,12 L96,12 L96,96 L12,96 Z" android:fillAlpha="0.0" />
-              <path android:strokeColor="#FF3340" android:strokeWidth="8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="@android:color/transparent"
-                    android:pathData="M20,76 L39,56 L52,65 L70,42 L88,24" />
-              <path android:fillColor="#FF3340" android:pathData="M78,23 L92,21 L88,36 Z" />
-              <path android:fillColor="#F5BE28" android:pathData="M63,17 L89,17 L89,39 L76,52 L63,39 Z" />
-              <path android:fillColor="#12161C" android:pathData="M69,23 L82,23 L82,31 L75,38 L69,32 Z" />
-              <path android:fillColor="#F5BE28" android:pathData="M18,77 L24,77 L24,83 L18,83 Z" />
-          </vector>'''
-          (res / 'drawable/pricewatch_launcher_foreground.xml').write_text(logo_vector)
-          (res / 'drawable/pricewatch_mark.xml').write_text(logo_vector)
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont
+
+          res = Path('android/app/src/main/res')
+          drawable = res / 'drawable-nodpi'
+          drawable.mkdir(parents=True, exist_ok=True)
+          (res / 'drawable').mkdir(parents=True, exist_ok=True)
+          (res / 'mipmap-anydpi-v26').mkdir(parents=True, exist_ok=True)
+          (res / 'values').mkdir(parents=True, exist_ok=True)
+
+          def rounded_rect(draw, box, radius, fill=None, outline=None, width=1):
+              draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
+
+          def make_mark(size=432, scale=1.0):
+              im = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+              d = ImageDraw.Draw(im)
+              s = size / 108.0 * scale
+              ox = oy = (size - 108*s) / 2
+              def P(x, y): return (ox + x*s, oy + y*s)
+              rounded_rect(d, [*P(10,10), *P(98,98)], 18*s, fill=(8,10,14,255), outline=(255,43,61,255), width=max(2,int(4*s)))
+              rounded_rect(d, [*P(13,13), *P(95,95)], 15*s, outline=(115,18,28,255), width=max(1,int(1.2*s)))
+              pts = [P(20,76),P(37,57),P(49,67),P(69,45),P(88,24)]
+              d.line(pts, fill=(255,43,61,255), width=max(2,int(5*s)), joint='curve')
+              for x,y in pts[:-1]:
+                  r=2.4*s
+                  d.ellipse([x-r,y-r,x+r,y+r], fill=(255,43,61,255))
+              d.polygon([P(78,24),P(92,20),P(88,36),P(86,29),P(80,30)], fill=(255,43,61,255))
+              d.rounded_rectangle([*P(22,24),*P(42,41)], radius=3*s, fill=(246,248,250,255))
+              d.polygon([P(25,38),P(36,43),P(42,36),P(32,31)], fill=(246,248,250,255))
+              d.ellipse([*P(27,27),*P(33,33)], fill=(8,10,14,255))
+              d.line([P(32,37),P(37,32)], fill=(255,43,61,255), width=max(1,int(2.5*s)))
+              d.rounded_rectangle([*P(28,69),*P(42,81)], radius=3*s, fill=(246,248,250,255))
+              d.polygon([P(29,79),P(39,84),P(43,79),P(35,75)], fill=(246,248,250,255))
+              d.ellipse([*P(31,71),*P(35,75)], fill=(8,10,14,255))
+              d.rectangle([*P(34,76),*P(38,79)], fill=(255,43,61,255))
+              d.rounded_rectangle([*P(57,64),*P(87,89)], radius=8*s, fill=(246,248,250,255), outline=(255,43,61,255), width=max(1,int(2.3*s)))
+              font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', max(10,int(13*s)))
+              bbox=d.textbbox((0,0),'PW',font=font)
+              tw,th=bbox[2]-bbox[0],bbox[3]-bbox[1]
+              d.text((P(72,76)[0]-tw/2,P(72,76)[1]-th/2-1*s),'PW',font=font,fill=(255,43,61,255))
+              return im
+
+          make_mark(432, 1.0).save(drawable / 'pricewatch_mark.png', 'PNG', optimize=True)
+          make_mark(432, 0.61).save(drawable / 'pricewatch_launcher_foreground.png', 'PNG', optimize=True)
 
           (res / 'mipmap-anydpi-v26/ic_launcher.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
               <background android:drawable="@color/pricewatch_launcher_background" />
               <foreground android:drawable="@drawable/pricewatch_launcher_foreground" />
+              <monochrome android:drawable="@drawable/pricewatch_launcher_foreground" />
           </adaptive-icon>''')
 
           (res / 'mipmap-anydpi-v26/ic_launcher_round.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
           <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
               <background android:drawable="@color/pricewatch_launcher_background" />
               <foreground android:drawable="@drawable/pricewatch_launcher_foreground" />
+              <monochrome android:drawable="@drawable/pricewatch_launcher_foreground" />
           </adaptive-icon>''')
 
           (res / 'values/pricewatch_colors.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
           <resources>
               <color name="pricewatch_launcher_background">#08090D</color>
           </resources>''')
-          PY
           python3 -m pip install --quiet pillow
           python3 - <<'PY'
           from pathlib import Path
