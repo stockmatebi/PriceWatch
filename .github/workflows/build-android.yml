@@ -45,8 +45,8 @@ jobs:
           grep -q '^newArchEnabled=false' android/gradle.properties
           grep -q '^bridgelessEnabled=false' android/gradle.properties
           grep -q 'applicationId "com.pricewatch.app"' android/app/build.gradle
-          grep -q 'android:name="com.pricewatch.app.MainActivity"' android/app/src/main/AndroidManifest.xml
-          grep -q 'android:name="com.pricewatch.app.MainApplication"' android/app/src/main/AndroidManifest.xml
+          grep -Eq 'android:name="(\\.MainActivity|com.pricewatch.app.MainActivity)"' android/app/src/main/AndroidManifest.xml
+          grep -Eq 'android:name="(\\.MainApplication|com.pricewatch.app.MainApplication)"' android/app/src/main/AndroidManifest.xml
           echo "Clean classic React Native startup configuration verified."
 
       - name: Build release APK
