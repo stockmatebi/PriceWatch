@@ -146,8 +146,8 @@ manifest = ANDROID / "app" / "src" / "main" / "AndroidManifest.xml"
 text = manifest.read_text()
 text = re.sub(r'android:icon="[^"]+"', 'android:icon="@mipmap/ic_launcher"', text, count=1)
 text = re.sub(r'android:roundIcon="[^"]+"', 'android:roundIcon="@mipmap/ic_launcher"', text, count=1)
-text = re.sub(r'android:name="\\.MainApplication"', 'android:name="com.pricewatch.app.MainApplication"', text)
-text = re.sub(r'android:name="\\.MainActivity"', 'android:name="com.pricewatch.app.MainActivity"', text)
+text = re.sub(r'android:name="\.MainApplication"', 'android:name="com.pricewatch.app.MainApplication"', text)
+text = re.sub(r'android:name="\.MainActivity"', 'android:name="com.pricewatch.app.MainActivity"', text)
 manifest.write_text(text)
 
 java_root = ANDROID / "app" / "src" / "main" / "java"
@@ -168,15 +168,79 @@ main_activity = new_pkg / "MainActivity.kt"
 main_activity.write_text(
     '''package com.pricewatch.app
 
+import android.graphics.Color
+import android.os.Bundle
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultReactActivityDelegate
+import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
 
 class MainActivity : ReactActivity() {
     override fun getMainComponentName(): String = "PriceWatch"
 
     override fun createReactActivityDelegate(): ReactActivityDelegate =
         DefaultReactActivityDelegate(this, mainComponentName, false)
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        try {
+            super.onCreate(savedInstanceState)
+        } catch (t: Throwable) {
+            showStartupError(t)
+        }
+    }
+
+    private fun showStartupError(t: Throwable) {
+        val sw = StringWriter()
+        t.printStackTrace(PrintWriter(sw))
+        val details = sw.toString()
+        try {
+            File(filesDir, "price_watch_startup_error.txt").writeText(details)
+        } catch (_: Throwable) {}
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 48, 40, 40)
+            setBackgroundColor(Color.rgb(18, 20, 23))
+        }
+
+        val title = TextView(this).apply {
+            text = "PRICE WATCH FAILED TO START"
+            textSize = 24f
+            setTextColor(Color.rgb(245, 190, 40))
+            gravity = Gravity.CENTER
+        }
+        root.addView(title, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+
+        val message = TextView(this).apply {
+            text = details
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            setPadding(0, 28, 0, 28)
+        }
+        val scroll = ScrollView(this)
+        scroll.addView(message)
+        root.addView(scroll, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
+        ))
+
+        val retry = Button(this).apply {
+            text = "RETRY"
+            setOnClickListener { recreate() }
+        }
+        root.addView(retry)
+
+        setContentView(root)
+    }
 }
 '''
 )
