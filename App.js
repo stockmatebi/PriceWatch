@@ -247,14 +247,16 @@ function PriceWatchApp() {
             <Text style={styles.emptyText}>A change will appear here after a supplier price moves between checks.</Text>
           </View>
         ) : changed.slice(0, 8).map(item => (
-          <View key={`${item.supplier.id}-${item.product.id}`} style={styles.changeCard}>
+          <View key={item.alert.id} style={styles.changeCard}>
             <View style={{flex: 1}}>
               <Text style={styles.productName}>{item.product.name}</Text>
-              <Text style={styles.unit}>{item.supplier.name}</Text>
+              <Text style={styles.unit}>{item.supplier.name} · {timeLabel(item.alert.detected_at)}</Text>
             </View>
             <View style={{alignItems: 'flex-end'}}>
-              <Text style={styles.price}>{money(item.row.price)}</Text>
-              {renderChange(item.pct)}
+              <Text style={styles.price}>{money(item.alert.new_price)}</Text>
+              <Text style={[styles.change, Number(item.alert.percentage_change) > 0 ? styles.changeUp : styles.changeDown]}>
+                {Number(item.alert.percentage_change) > 0 ? '▲ ' : '▼ '}{Math.abs(Number(item.alert.percentage_change)).toFixed(1)}%
+              </Text>
             </View>
           </View>
         ))}
