@@ -167,6 +167,52 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 class MainActivity : ReactActivity() {
     override fun getMainComponentName(): String = "PriceWatch"
 
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        try {
+            if (MainApplication.startupFailure != null) {
+                showDiagnostic(MainApplication.startupFailure!!)
+                return
+            }
+            super.onCreate(savedInstanceState)
+        } catch (t: Throwable) {
+            showDiagnostic(t)
+        }
+    }
+
+    private fun showDiagnostic(t: Throwable) {
+        val scroll = android.widget.ScrollView(this)
+        val box = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(40, 60, 40, 40)
+            setBackgroundColor(android.graphics.Color.rgb(18, 20, 23))
+        }
+        val title = android.widget.TextView(this).apply {
+            text = "PRICE WATCH\\n\\nSTARTUP ERROR"
+            textSize = 28f
+            setTextColor(android.graphics.Color.rgb(245, 190, 40))
+            setPadding(0, 0, 0, 24)
+        }
+        val details = android.widget.TextView(this).apply {
+            text = "The app could not start.\\n\\n" + t.javaClass.name + ": " + (t.message ?: "No error message") + "\\n\\n" + android.util.Log.getStackTraceString(t)
+            textSize = 14f
+            setTextColor(android.graphics.Color.WHITE)
+            setTextIsSelectable(true)
+        }
+        val copy = android.widget.Button(this).apply {
+            text = "COPY ERROR DETAILS"
+            setOnClickListener {
+                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Price Watch startup error", details.text))
+                android.widget.Toast.makeText(this@MainActivity, "Error details copied", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+        box.addView(title)
+        box.addView(details)
+        box.addView(copy)
+        scroll.addView(box)
+        setContentView(scroll)
+    }
+
     override fun createReactActivityDelegate(): ReactActivityDelegate =
         DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
 }
@@ -190,6 +236,9 @@ import java.util.Date
 import java.util.Locale
 
 class MainApplication : Application(), ReactApplication {
+    companion object {
+        @JvmStatic var startupFailure: Throwable? = null
+    }
     override val reactNativeHost: ReactNativeHost =
         object : DefaultReactNativeHost(this) {
             override fun getPackages() = PackageList(this).packages
@@ -218,7 +267,7 @@ class MainApplication : Application(), ReactApplication {
             StartupDiagnostics.write(this, "REACT_NATIVE_LOAD_RETURNED")
         } catch (t: Throwable) {
             StartupDiagnostics.write(this, "REACT_NATIVE_LOAD_FAILED", t)
-            throw t
+            startupFailure = t
         }
     }
 }
