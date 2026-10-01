@@ -152,33 +152,34 @@ import android.os.Build
 import android.util.Log
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
-import com.facebook.react.ReactHost
+import com.facebook.react.ReactNativeHost
+import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
-import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class MainApplication : Application(), ReactApplication {
-    override val reactHost: ReactHost by lazy {
-        getDefaultReactHost(
-            context = applicationContext,
-            packageList = PackageList(this).packages,
-        )
-    }
+    override val reactNativeHost: ReactNativeHost =
+        object : DefaultReactNativeHost(this) {
+            override fun getPackages() = PackageList(this).packages
+            override fun getJSMainModuleName() = "index"
+            override fun getUseDeveloperSupport() = BuildConfig.DEBUG
+            override val isHermesEnabled: Boolean = BuildConfig.IS_HERMES_ENABLED
+        }
 
     override fun onCreate() {
         super.onCreate()
         StartupDiagnostics.write(this, "APPLICATION_ONCREATE")
         StartupDiagnostics.write(
             this,
-            "DEVICE \${Build.MANUFACTURER} \${Build.MODEL} Android \${Build.VERSION.RELEASE} API \${Build.VERSION.SDK_INT}"
+            "DEVICE ${Build.MANUFACTURER} ${Build.MODEL} Android ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT}"
         )
 
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            StartupDiagnostics.write(this, "UNCAUGHT_EXCEPTION thread=\${thread.name}", throwable)
+            StartupDiagnostics.write(this, "UNCAUGHT_EXCEPTION thread=${thread.name}", throwable)
             previousHandler?.uncaughtException(thread, throwable)
         }
 
