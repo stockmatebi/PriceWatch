@@ -57,6 +57,7 @@ jobs:
           (res / 'drawable').mkdir(parents=True, exist_ok=True)
           (res / 'values').mkdir(parents=True, exist_ok=True)
           PY
+          python3 -m pip install --quiet pillow
           python3 - <<'PY'
           from pathlib import Path
           from PIL import Image, ImageDraw, ImageFont
