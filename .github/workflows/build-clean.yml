@@ -56,7 +56,7 @@ jobs:
           (res / 'mipmap-anydpi-v26').mkdir(parents=True, exist_ok=True)
           (res / 'drawable').mkdir(parents=True, exist_ok=True)
           (res / 'values').mkdir(parents=True, exist_ok=True)
-
+          PY
           python3 - <<'PY'
           from pathlib import Path
           from PIL import Image, ImageDraw, ImageFont
