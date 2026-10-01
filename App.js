@@ -490,85 +490,65 @@ snapshotResult.error ||
 
   const renderCompare = () => (
     <>
-      <View style={styles.compareHero}>
+      <View style={styles.compareCompactHeader}>
         <View style={{flex: 1}}>
           <Text style={styles.compareEyebrow}>LIVE PRICE INTELLIGENCE</Text>
           <Text style={styles.compareTitle}>Best pricing</Text>
-          <Text style={styles.compareIntro}>See the lowest available price for each monitored product.</Text>
+          <Text style={styles.compareIntro}>Lowest available price for each monitored product.</Text>
         </View>
         <View style={styles.compareHeroMark}>
           <Text style={styles.compareHeroArrow}>↗</Text>
         </View>
       </View>
 
-      {products.map(product => {
-        const rows = suppliers
-          .map(supplier => ({supplier, row: currentPriceRow(supplier.id, product.id)}))
-          .filter(item => item.row?.price != null)
-          .sort((a, b) => Number(a.row.price) - Number(b.row.price));
+      <View style={styles.compareGrid}>
+        {products.map(product => {
+          const rows = suppliers
+            .map(supplier => ({supplier, row: currentPriceRow(supplier.id, product.id)}))
+            .filter(item => item.row?.price != null)
+            .sort((a, b) => Number(a.row.price) - Number(b.row.price));
 
-        const lowest = rows[0]?.row?.price;
-        const lowestRows = lowest == null
-          ? []
-          : rows.filter(item => Number(item.row.price) === Number(lowest));
-        const cheapestSupplier = lowestRows.map(item => item.supplier.name).join(' · ');
-        const imageResource = productImageResource(product);
+          const lowest = rows[0]?.row?.price;
+          const lowestRows = lowest == null
+            ? []
+            : rows.filter(item => Number(item.row.price) === Number(lowest));
+          const cheapestSupplier = lowestRows.map(item => item.supplier.name).join(' · ');
+          const imageResource = productImageResource(product);
 
-        return (
-          <View key={product.id} style={styles.bestPriceCard}>
-            <View style={styles.bestPriceTop}>
-              <View style={styles.productImageWrap}>
+          return (
+            <View key={product.id} style={styles.compactPriceCard}>
+              <View style={styles.compactImageWrap}>
                 {imageResource ? (
                   <Image
                     source={{uri: imageResource}}
-                    style={styles.productImage}
+                    style={styles.compactProductImage}
                     resizeMode="contain"
                     accessibilityLabel={product.name}
                   />
                 ) : (
-                  <View style={styles.productImageFallback}>
+                  <View style={styles.compactImageFallback}>
                     <Text style={styles.productImageFallbackText}>PRICE</Text>
                   </View>
                 )}
               </View>
 
-              <View style={styles.bestPriceInfo}>
-                <Text style={styles.bestPriceProduct}>{product.name}</Text>
-                <Text style={styles.unit}>{product.unit}</Text>
+              <Text style={styles.compactProductName} numberOfLines={2}>{product.name}</Text>
 
-                {lowest == null ? (
-                  <Text style={styles.bestPriceUnavailable}>PRICE NOT AVAILABLE</Text>
-                ) : (
-                  <>
-                    <Text style={styles.bestPriceLabel}>BEST AVAILABLE PRICE</Text>
-                    <Text style={styles.bestPriceValue}>{money(lowest)}</Text>
-                    <View style={styles.cheapestPill}>
-                      <View style={styles.cheapestDot} />
-                      <Text style={styles.cheapestPillText}>CHEAPEST AT {cheapestSupplier}</Text>
-                    </View>
-                  </>
-                )}
-              </View>
-            </View>
-
-            {rows.length > 1 ? (
-              <View style={styles.otherPrices}>
-                <Text style={styles.otherPricesTitle}>OTHER AVAILABLE PRICES</Text>
-                {rows.slice(1, 4).map(item => (
-                  <View key={item.supplier.id} style={styles.otherPriceRow}>
-                    <Text style={styles.otherSupplier}>{item.supplier.name}</Text>
-                    <Text style={styles.otherPrice}>{money(item.row.price)}</Text>
+              {lowest == null ? (
+                <Text style={styles.compactUnavailable}>PRICE NOT AVAILABLE</Text>
+              ) : (
+                <>
+                  <Text style={styles.compactPrice}>{money(lowest)}</Text>
+                  <View style={styles.compactCheapestPill}>
+                    <View style={styles.cheapestDot} />
+                    <Text style={styles.compactCheapestText} numberOfLines={1}>CHEAPEST: {cheapestSupplier}</Text>
                   </View>
-                ))}
-              </View>
-            ) : null}
-
-            {rows.length === 1 ? (
-              <Text style={styles.singlePriceNote}>Only one current supplier price is available.</Text>
-            ) : null}
-          </View>
-        );
-      })}
+                </>
+              )}
+            </View>
+          );
+        })}
+      </View>
     </>
   );
   const renderHistory = () => (
@@ -812,8 +792,8 @@ const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#08090d'},
   topBar: {paddingHorizontal: 16, paddingTop: 12, paddingBottom: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#171b21'},
   brandBlock: {flexDirection: 'row', alignItems: 'center'},
-  logoMark: {width: 46, height: 46, alignItems: 'center', justifyContent: 'center', marginRight: 9},
-  logoMarkImage: {width: 46, height: 46},
+  logoMark: {width: 52, height: 52, alignItems: 'center', justifyContent: 'center', marginRight: 10},
+  logoMarkImage: {width: 52, height: 52},
   logo: {fontSize: 21, fontWeight: '900', color: '#fff', letterSpacing: 0.2},
   logoPrice: {color: '#fff'},
   logoWatch: {color: '#FF3340'},
@@ -829,32 +809,24 @@ const styles = StyleSheet.create({
   liveText: {fontSize: 11, fontWeight: '800', color: '#dce2e7'},
   scroll: {flex: 1},
   content: {padding: 14, paddingBottom: 26},
-  compareHero: {padding: 17, borderRadius: 18, backgroundColor: '#111419', borderWidth: 1, borderColor: '#1f242c', flexDirection: 'row', alignItems: 'center', marginBottom: 14},
+  compareCompactHeader: {height: 86, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 16, backgroundColor: '#111419', borderWidth: 1, borderColor: '#1f242c', flexDirection: 'row', alignItems: 'center', marginBottom: 10},
   compareEyebrow: {fontSize: 10, fontWeight: '900', color: '#F5BE28', letterSpacing: 1.3},
-  compareTitle: {fontSize: 28, fontWeight: '900', color: '#fff', marginTop: 3},
-  compareIntro: {fontSize: 12, lineHeight: 18, color: '#9299a2', marginTop: 3, maxWidth: 260},
-  compareHeroMark: {width: 52, height: 52, borderRadius: 26, backgroundColor: '#181d24', alignItems: 'center', justifyContent: 'center', marginLeft: 12},
-  compareHeroArrow: {fontSize: 34, fontWeight: '900', color: '#ff3340', marginTop: -3},
-  bestPriceCard: {backgroundColor: '#111419', borderRadius: 18, borderWidth: 1, borderColor: '#1f242c', padding: 14, marginBottom: 12},
-  bestPriceTop: {flexDirection: 'row', alignItems: 'center'},
-  productImageWrap: {width: 122, height: 122, alignItems: 'center', justifyContent: 'center', marginRight: 12},
-  productImage: {width: 116, height: 116},
-  productImageFallback: {width: 100, height: 100, borderRadius: 18, backgroundColor: '#181d24', alignItems: 'center', justifyContent: 'center'},
-  productImageFallbackText: {fontSize: 10, fontWeight: '900', color: '#666f79'},
-  bestPriceInfo: {flex: 1, minWidth: 0},
-  bestPriceProduct: {fontSize: 17, lineHeight: 21, fontWeight: '900', color: '#fff'},
-  bestPriceLabel: {fontSize: 9, fontWeight: '900', color: '#8e969f', letterSpacing: 0.7, marginTop: 12},
-  bestPriceValue: {fontSize: 28, lineHeight: 32, fontWeight: '900', color: '#ff3340', marginTop: 1},
-  bestPriceUnavailable: {fontSize: 11, fontWeight: '900', color: '#777f89', marginTop: 12},
-  cheapestPill: {alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: '#153520', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 6, marginTop: 7, maxWidth: '100%'},
-  cheapestDot: {width: 7, height: 7, borderRadius: 4, backgroundColor: '#38d66b', marginRight: 6},
-  cheapestPillText: {fontSize: 9, fontWeight: '900', color: '#5be582', flexShrink: 1},
-  otherPrices: {borderTopWidth: 1, borderTopColor: '#20252c', marginTop: 13, paddingTop: 10},
-  otherPricesTitle: {fontSize: 9, fontWeight: '900', color: '#747c86', letterSpacing: 0.7, marginBottom: 4},
-  otherPriceRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6},
-  otherSupplier: {fontSize: 11, color: '#aeb5bd', flex: 1},
-  otherPrice: {fontSize: 13, fontWeight: '800', color: '#dce1e6'},
-  singlePriceNote: {fontSize: 10, color: '#6f7781', marginTop: 10},
+  compareTitle: {fontSize: 23, fontWeight: '900', color: '#fff', marginTop: 2},
+  compareIntro: {fontSize: 10, lineHeight: 14, color: '#9299a2', marginTop: 2, maxWidth: 260},
+  compareHeroMark: {width: 42, height: 42, borderRadius: 21, backgroundColor: '#181d24', alignItems: 'center', justifyContent: 'center', marginLeft: 8},
+  compareHeroArrow: {fontSize: 27, fontWeight: '900', color: '#ff3340', marginTop: -2},
+  compareGrid: {flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between'},
+  compactPriceCard: {width: '48.5%', height: 238, backgroundColor: '#111419', borderRadius: 16, borderWidth: 1, borderColor: '#1f242c', padding: 11, marginBottom: 9},
+  compactImageWrap: {height: 94, alignItems: 'center', justifyContent: 'center', marginBottom: 4},
+  compactProductImage: {width: 88, height: 88},
+  compactImageFallback: {width: 78, height: 78, borderRadius: 14, backgroundColor: '#181d24', alignItems: 'center', justifyContent: 'center'},
+  productImageFallbackText: {fontSize: 9, fontWeight: '900', color: '#666f79'},
+  compactProductName: {fontSize: 13, lineHeight: 16, fontWeight: '900', color: '#fff', minHeight: 32},
+  compactPrice: {fontSize: 24, lineHeight: 28, fontWeight: '900', color: '#ff3340', marginTop: 8},
+  compactUnavailable: {fontSize: 9, fontWeight: '900', color: '#777f89', marginTop: 9},
+  compactCheapestPill: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#153520', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 5, marginTop: 6},
+  cheapestDot: {width: 6, height: 6, borderRadius: 3, backgroundColor: '#38d66b', marginRight: 5},
+  compactCheapestText: {flex: 1, fontSize: 8, fontWeight: '900', color: '#5be582'},
   hero: {padding: 17, borderRadius: 18, backgroundColor: '#111419', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   eyebrow: {fontSize: 10, fontWeight: '800', color: '#F5BE28', letterSpacing: 1.3},
   heroTitle: {fontSize: 27, fontWeight: '800', color: '#fff', marginTop: 5},
