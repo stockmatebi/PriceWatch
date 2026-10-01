@@ -68,10 +68,11 @@ build_gradle.write_text(s)
 # this app deliberately uses ReactNativeHost for maximum startup compatibility.
 gradle_props = ANDROID / "gradle.properties"
 gp = gradle_props.read_text() if gradle_props.exists() else ""
-if re.search(r"^newArchEnabled=.*$", gp, flags=re.MULTILINE):
-    gp = re.sub(r"^newArchEnabled=.*$", "newArchEnabled=false", gp, flags=re.MULTILINE)
-else:
-    gp += "\nnewArchEnabled=false\n"
+for key in ("newArchEnabled", "bridgelessEnabled"):
+    if re.search(rf"^{key}=.*$", gp, flags=re.MULTILINE):
+        gp = re.sub(rf"^{key}=.*$", f"{key}=false", gp, flags=re.MULTILINE)
+    else:
+        gp += f"\n{key}=false\n"
 gradle_props.write_text(gp)
 
 for p in (ANDROID / "app" / "src" / "main" / "res").rglob("strings.xml"):
@@ -172,60 +173,13 @@ main_activity.write_text(
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
-import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 class MainActivity : ReactActivity() {
     override fun getMainComponentName(): String = "PriceWatch"
 
-    override fun onCreate(savedInstanceState: android.os.Bundle?) {
-        try {
-            if (MainApplication.startupFailure != null) {
-                showDiagnostic(MainApplication.startupFailure!!)
-                return
-            }
-            super.onCreate(savedInstanceState)
-        } catch (t: Throwable) {
-            showDiagnostic(t)
-        }
-    }
-
-    private fun showDiagnostic(t: Throwable) {
-        val scroll = android.widget.ScrollView(this)
-        val box = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(40, 60, 40, 40)
-            setBackgroundColor(android.graphics.Color.rgb(18, 20, 23))
-        }
-        val title = android.widget.TextView(this).apply {
-            text = "PRICE WATCH\\n\\nSTARTUP ERROR"
-            textSize = 28f
-            setTextColor(android.graphics.Color.rgb(245, 190, 40))
-            setPadding(0, 0, 0, 24)
-        }
-        val details = android.widget.TextView(this).apply {
-            text = "The app could not start.\\n\\n" + t.javaClass.name + ": " + (t.message ?: "No error message") + "\\n\\n" + android.util.Log.getStackTraceString(t)
-            textSize = 14f
-            setTextColor(android.graphics.Color.WHITE)
-            setTextIsSelectable(true)
-        }
-        val copy = android.widget.Button(this).apply {
-            text = "COPY ERROR DETAILS"
-            setOnClickListener {
-                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Price Watch startup error", details.text))
-                android.widget.Toast.makeText(this@MainActivity, "Error details copied", android.widget.Toast.LENGTH_SHORT).show()
-            }
-        }
-        box.addView(title)
-        box.addView(details)
-        box.addView(copy)
-        scroll.addView(box)
-        setContentView(scroll)
-    }
-
     override fun createReactActivityDelegate(): ReactActivityDelegate =
-        DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
+        DefaultReactActivityDelegate(this, mainComponentName, false)
 }
 '''
 )
@@ -234,22 +188,13 @@ main_app.write_text(
     '''package com.pricewatch.app
 
 import android.app.Application
-import android.os.Build
-import android.util.Log
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactNativeHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class MainApplication : Application(), ReactApplication {
-    companion object {
-        @JvmStatic var startupFailure: Throwable? = null
-    }
     override val reactNativeHost: ReactNativeHost =
         object : DefaultReactNativeHost(this) {
             override fun getPackages() = PackageList(this).packages
@@ -260,54 +205,7 @@ class MainApplication : Application(), ReactApplication {
 
     override fun onCreate() {
         super.onCreate()
-        StartupDiagnostics.write(this, "APPLICATION_ONCREATE")
-        StartupDiagnostics.write(
-            this,
-            "DEVICE ${Build.MANUFACTURER} ${Build.MODEL} Android ${Build.VERSION.RELEASE} API ${Build.VERSION.SDK_INT}"
-        )
-
-        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            StartupDiagnostics.write(this, "UNCAUGHT_EXCEPTION thread=${thread.name}", throwable)
-            previousHandler?.uncaughtException(thread, throwable)
-        }
-
-        try {
-            StartupDiagnostics.write(this, "REACT_NATIVE_LOAD_START")
-            loadReactNative(this)
-            StartupDiagnostics.write(this, "REACT_NATIVE_LOAD_RETURNED")
-        } catch (t: Throwable) {
-            StartupDiagnostics.write(this, "REACT_NATIVE_LOAD_FAILED", t)
-            startupFailure = t
-        }
-    }
-}
-
-object StartupDiagnostics {
-    private const val TAG = "PriceWatchStartup"
-    private const val FILE_NAME = "pricewatch_startup.log"
-
-    fun write(app: Application, stage: String, throwable: Throwable? = null) {
-        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS Z", Locale.US).format(Date())
-        val text = buildString {
-            append(timestamp).append(" | ").append(stage).append('\\n')
-            if (throwable != null) {
-                append(throwable.javaClass.name).append(": ").append(throwable.message).append('\\n')
-                append(Log.getStackTraceString(throwable)).append('\\n')
-            }
-        }
-
-        try { Log.i(TAG, text) } catch (_: Throwable) { }
-        try { File(app.filesDir, FILE_NAME).appendText(text) } catch (_: Throwable) { }
-
-        try {
-            val external = app.getExternalFilesDir(null)
-            if (external != null) {
-                val dir = File(external, "PriceWatch")
-                if (!dir.exists()) dir.mkdirs()
-                File(dir, FILE_NAME).appendText(text)
-            }
-        } catch (_: Throwable) { }
+        loadReactNative(this)
     }
 }
 '''
