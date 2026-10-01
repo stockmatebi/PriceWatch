@@ -37,6 +37,60 @@ jobs:
           PY
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          s = manifest.read_text()
+          s = re.sub(r'android:label="[^"]+"', 'android:label="PriceWatch"', s, count=1)
+          s = re.sub(r'android:icon="@mipmap/[^"]+"', 'android:icon="@mipmap/ic_launcher"', s, count=1)
+          s = re.sub(r'android:roundIcon="@mipmap/[^"]+"', 'android:roundIcon="@mipmap/ic_launcher_round"', s, count=1)
+          manifest.write_text(s)
+
+          strings = Path('android/app/src/main/res/values/strings.xml')
+          if strings.exists():
+              ss = strings.read_text()
+              ss = re.sub(r'<string name="app_name">.*?</string>', '<string name="app_name">PriceWatch</string>', ss)
+              strings.write_text(ss)
+
+          res = Path('android/app/src/main/res')
+          (res / 'mipmap-anydpi-v26').mkdir(parents=True, exist_ok=True)
+          (res / 'drawable').mkdir(parents=True, exist_ok=True)
+          (res / 'values').mkdir(parents=True, exist_ok=True)
+
+          (res / 'drawable/pricewatch_launcher_foreground.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path android:strokeColor="#121417" android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="@android:color/transparent"
+                    android:pathData="M14,18 L94,18 L94,90 L14,90 Z" />
+              <path android:strokeColor="#FF4545" android:strokeWidth="7" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="@android:color/transparent"
+                    android:pathData="M22,70 L39,55 L52,63 L69,42 L87,27" />
+              <path android:fillColor="#FF4545" android:pathData="M79,26 L91,24 L88,37 Z" />
+              <path android:fillColor="#121417" android:pathData="M23,76 L23,86 L33,86 L33,76 Z" />
+              <path android:fillColor="#121417" android:pathData="M37,76 L37,86 L47,86 L47,76 Z" />
+          </vector>''')
+
+          (res / 'mipmap-anydpi-v26/ic_launcher.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/pricewatch_launcher_background" />
+              <foreground android:drawable="@drawable/pricewatch_launcher_foreground" />
+          </adaptive-icon>''')
+
+          (res / 'mipmap-anydpi-v26/ic_launcher_round.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/pricewatch_launcher_background" />
+              <foreground android:drawable="@drawable/pricewatch_launcher_foreground" />
+          </adaptive-icon>''')
+
+          (res / 'values/pricewatch_colors.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="pricewatch_launcher_background">#F5BE28</color>
+          </resources>''')
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
           p=Path('android/gradle.properties')
           s=p.read_text()
           import re
