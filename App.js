@@ -86,6 +86,7 @@ export default function App() {
 function PriceWatchApp() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState('dashboard');
+  const [compareProductId, setCompareProductId] = useState(null);
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
   const [snapshots, setSnapshots] = useState([]);
@@ -217,11 +218,24 @@ snapshotResult.error ||
   };
 
   const promotionForRow = row => {
-    if (!row || row.source_type !== 'facebook' || !row.source_url) return null;
-    return promotions.find(promotion => promotion.supplier_id === row.supplier_id && promotion.post_url === row.source_url) || null;
+    if (!row || !row.source_url || !['facebook', 'instagram'].includes(String(row.source_type || '').toLowerCase())) return null;
+    return promotions.find(promotion =>
+      promotion.supplier_id === row.supplier_id &&
+      promotion.post_url === row.source_url
+    ) || null;
   };
 
   const priceStatusForRow = row => getPromotionStatus(promotionForRow(row));
+
+  const comparePriceStyle = row => {
+    if (!row || row.price == null) return {color: '#666f79', label: 'NO PRICE', background: '#181d24'};
+    if (row.source_type === 'manual') return {color: '#27D9FF', label: 'MANUAL', background: '#102f38'};
+    const promo = promotionForRow(row);
+    const status = getPromotionStatus(promo);
+    if (status?.key === 'valid') return {color: '#57D58A', label: 'PROMOTION ACTIVE', background: '#183022'};
+    if (status?.key === 'expired') return {color: '#FF9B3D', label: 'PROMOTION OUTDATED', background: '#3a2819'};
+    return {color: '#FF3340', label: 'CURRENT', background: '#351b1f'};
+  };
 
   const priceChange = (supplierId, productId) =>
     changePct(
@@ -488,69 +502,173 @@ snapshotResult.error ||
     );
   };
 
-  const renderCompare = () => (
-    <>
-      <View style={styles.compareCompactHeader}>
-        <View style={{flex: 1}}>
-          <Text style={styles.compareEyebrow}>LIVE PRICE INTELLIGENCE</Text>
-          <Text style={styles.compareTitle}>Best pricing</Text>
-          <Text style={styles.compareIntro}>Lowest available price for each monitored product.</Text>
-        </View>
-        <View style={styles.compareHeroMark}>
-          <Text style={styles.compareHeroArrow}>↗</Text>
-        </View>
-      </View>
+  const renderCompare = () => {
+    const selectedProduct = products.find(product => product.id === compareProductId);
 
-      <View style={styles.compareGrid}>
-        {products.map(product => {
-          const rows = suppliers
-            .map(supplier => ({supplier, row: currentPriceRow(supplier.id, product.id)}))
-            .filter(item => item.row?.price != null)
-            .sort((a, b) => Number(a.row.price) - Number(b.row.price));
+    if (selectedProduct) {
+      const comparisonRows = suppliers.map(supplier => {
+        const row = currentPriceRow(supplier.id, selectedProduct.id);
+        const style = comparePriceStyle(row);
+        return {supplier, row, style};
+      });
 
-          const lowest = rows[0]?.row?.price;
-          const lowestRows = lowest == null
-            ? []
-            : rows.filter(item => Number(item.row.price) === Number(lowest));
-          const cheapestSupplier = lowestRows.map(item => item.supplier.name).join(' · ');
-          const imageResource = productImageResource(product);
+      const available = comparisonRows
+        .filter(item => item.row?.price != null)
+        .sort((a, b) => Number(a.row.price) - Number(b.row.price));
+      const lowest = available[0]?.row?.price;
 
-          return (
-            <View key={product.id} style={styles.compactPriceCard}>
-              <View style={styles.compactImageWrap}>
-                {imageResource ? (
-                  <Image
-                    source={{uri: imageResource}}
-                    style={styles.compactProductImage}
-                    resizeMode="contain"
-                    accessibilityLabel={product.name}
-                  />
-                ) : (
-                  <View style={styles.compactImageFallback}>
-                    <Text style={styles.productImageFallbackText}>PRICE</Text>
-                  </View>
-                )}
-              </View>
+      return (
+        <>
+          <TouchableOpacity style={styles.compareBackButton} onPress={() => setCompareProductId(null)}>
+            <Text style={styles.compareBackText}>‹  Back to Best Pricing</Text>
+          </TouchableOpacity>
 
-              <Text style={styles.compactProductName} numberOfLines={2}>{product.name}</Text>
-
-              {lowest == null ? (
-                <Text style={styles.compactUnavailable}>PRICE NOT AVAILABLE</Text>
-              ) : (
-                <>
-                  <Text style={styles.compactPrice}>{money(lowest)}</Text>
-                  <View style={styles.compactCheapestPill}>
-                    <View style={styles.cheapestDot} />
-                    <Text style={styles.compactCheapestText} numberOfLines={1}>CHEAPEST: {cheapestSupplier}</Text>
-                  </View>
-                </>
-              )}
+          <View style={styles.compareDetailHeader}>
+            <View style={styles.compareDetailImageWrap}>
+              {productImageResource(selectedProduct) ? (
+                <Image
+                  source={{uri: productImageResource(selectedProduct)}}
+                  style={styles.compareDetailImage}
+                  resizeMode="contain"
+                  accessibilityLabel={selectedProduct.name}
+                />
+              ) : null}
             </View>
-          );
-        })}
-      </View>
-    </>
-  );
+            <View style={{flex: 1}}>
+              <Text style={styles.compareEyebrow}>STORE-BY-STORE COMPARISON</Text>
+              <Text style={styles.compareDetailTitle}>{selectedProduct.name}</Text>
+              <Text style={styles.compareDetailSub}>{selectedProduct.unit} · {available.length} prices available</Text>
+            </View>
+          </View>
+
+          <View style={styles.compareLegend}>
+            <View style={styles.legendChip}><View style={[styles.legendDot, {backgroundColor: '#FF3340'}]} /><Text style={styles.legendChipText}>CURRENT</Text></View>
+            <View style={styles.legendChip}><View style={[styles.legendDot, {backgroundColor: '#57D58A'}]} /><Text style={styles.legendChipText}>PROMOTION</Text></View>
+            <View style={styles.legendChip}><View style={[styles.legendDot, {backgroundColor: '#FF9B3D'}]} /><Text style={styles.legendChipText}>OUTDATED</Text></View>
+            <View style={styles.legendChip}><View style={[styles.legendDot, {backgroundColor: '#27D9FF'}]} /><Text style={styles.legendChipText}>MANUAL</Text></View>
+          </View>
+
+          <View style={styles.compareSupplierList}>
+            {comparisonRows.map(({supplier, row, style}) => {
+              const isLowest = lowest != null && row?.price != null && Number(row.price) === Number(lowest);
+              const promo = promotionForRow(row);
+              const promoStatus = getPromotionStatus(promo);
+
+              return (
+                <View key={supplier.id} style={[styles.compareSupplierCard, isLowest && styles.compareSupplierCardLowest]}>
+                  <View style={styles.compareSupplierTop}>
+                    <View style={{flex: 1}}>
+                      <Text style={styles.compareSupplierName}>{supplier.name}</Text>
+                      <Text style={styles.compareSupplierLocation}>{supplier.location || 'Howick'}</Text>
+                    </View>
+                    <View style={[styles.compareStatusPill, {backgroundColor: style.background}]}>
+                      <View style={[styles.legendDot, {backgroundColor: style.color}]} />
+                      <Text style={[styles.compareStatusText, {color: style.color}]}>{style.label}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.compareSupplierBottom}>
+                    <View style={{flex: 1}}>
+                      <Text style={[styles.compareSupplierPrice, {color: style.color}]}>
+                        {row?.price != null ? money(row.price) : '—'}
+                      </Text>
+                      <Text style={styles.compareChecked}>
+                        {row?.source_type === 'manual'
+                          ? 'Entered ' + timeLabel(row.checked_at)
+                          : row?.checked_at
+                            ? 'Checked ' + timeLabel(row.checked_at)
+                            : 'No price recorded'}
+                      </Text>
+                    </View>
+                    {isLowest ? (
+                      <View style={styles.cheapestLargePill}>
+                        <Text style={styles.cheapestLargeText}>LOWEST</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {promoStatus?.detail ? (
+                    <Text style={[styles.comparePromoDetail, {color: style.color}]}>{promoStatus.detail}</Text>
+                  ) : null}
+                  {row?.promotion_text ? (
+                    <Text style={styles.comparePromotionText} numberOfLines={2}>{row.promotion_text}</Text>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <View style={styles.compareCompactHeader}>
+          <View style={{flex: 1}}>
+            <Text style={styles.compareEyebrow}>LIVE PRICE INTELLIGENCE</Text>
+            <Text style={styles.compareTitle}>Best pricing</Text>
+            <Text style={styles.compareIntro}>Lowest available price for each monitored product.</Text>
+          </View>
+          <View style={styles.compareHeroMark}>
+            <Text style={styles.compareHeroArrow}>↗</Text>
+          </View>
+        </View>
+
+        <View style={styles.compareGrid}>
+          {products.map(product => {
+            const rows = suppliers
+              .map(supplier => ({supplier, row: currentPriceRow(supplier.id, product.id)}))
+              .filter(item => item.row?.price != null)
+              .sort((a, b) => Number(a.row.price) - Number(b.row.price));
+
+            const lowest = rows[0]?.row?.price;
+            const lowestRows = lowest == null ? [] : rows.filter(item => Number(item.row.price) === Number(lowest));
+            const cheapestSupplier = lowestRows.map(item => item.supplier.name).join(' · ');
+            const imageResource = productImageResource(product);
+
+            return (
+              <TouchableOpacity
+                key={product.id}
+                activeOpacity={0.82}
+                style={styles.compactPriceCard}
+                onPress={() => setCompareProductId(product.id)}>
+                <View style={styles.compactImageWrap}>
+                  {imageResource ? (
+                    <Image
+                      source={{uri: imageResource}}
+                      style={styles.compactProductImage}
+                      resizeMode="contain"
+                      accessibilityLabel={product.name}
+                    />
+                  ) : (
+                    <View style={styles.compactImageFallback}>
+                      <Text style={styles.productImageFallbackText}>PRICE</Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.compactProductName} numberOfLines={2}>{product.name}</Text>
+
+                {lowest == null ? (
+                  <Text style={styles.compactUnavailable}>PRICE NOT AVAILABLE</Text>
+                ) : (
+                  <>
+                    <Text style={styles.compactPrice}>{money(lowest)}</Text>
+                    <View style={styles.compactCheapestPill}>
+                      <View style={styles.cheapestDot} />
+                      <Text style={styles.compactCheapestText} numberOfLines={1}>CHEAPEST: {cheapestSupplier}</Text>
+                    </View>
+                  </>
+                )}
+                <Text style={styles.compactTapHint}>TAP FOR ALL STORES ›</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </>
+    );
+  };
+
   const renderHistory = () => (
     <>
       <Text style={styles.sectionTitle}>Price history</Text>
@@ -809,6 +927,32 @@ const styles = StyleSheet.create({
   liveText: {fontSize: 11, fontWeight: '800', color: '#dce2e7'},
   scroll: {flex: 1},
   content: {padding: 14, paddingBottom: 26},
+  compareBackButton: {paddingVertical: 4, marginBottom: 10},
+  compareBackText: {fontSize: 12, fontWeight: '900', color: '#F5BE28'},
+  compareDetailHeader: {minHeight: 118, padding: 12, borderRadius: 16, backgroundColor: '#111419', borderWidth: 1, borderColor: '#1f242c', flexDirection: 'row', alignItems: 'center', marginBottom: 10},
+  compareDetailImageWrap: {width: 96, height: 96, alignItems: 'center', justifyContent: 'center', marginRight: 12},
+  compareDetailImage: {width: 92, height: 92},
+  compareDetailTitle: {fontSize: 20, lineHeight: 24, fontWeight: '900', color: '#fff', marginTop: 3},
+  compareDetailSub: {fontSize: 10, color: '#858d96', marginTop: 5},
+  compareLegend: {flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10},
+  legendChip: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#111419', borderRadius: 7, paddingHorizontal: 7, paddingVertical: 5, borderWidth: 1, borderColor: '#1f242c'},
+  legendDot: {width: 7, height: 7, borderRadius: 4, marginRight: 5},
+  legendChipText: {fontSize: 8, fontWeight: '900', color: '#aeb5bd'},
+  compareSupplierList: {gap: 9},
+  compareSupplierCard: {backgroundColor: '#111419', borderRadius: 15, borderWidth: 1, borderColor: '#1f242c', padding: 12},
+  compareSupplierCardLowest: {borderColor: '#57D58A'},
+  compareSupplierTop: {flexDirection: 'row', alignItems: 'flex-start'},
+  compareSupplierName: {fontSize: 15, fontWeight: '900', color: '#fff'},
+  compareSupplierLocation: {fontSize: 9, color: '#747d87', marginTop: 2},
+  compareStatusPill: {flexDirection: 'row', alignItems: 'center', borderRadius: 7, paddingHorizontal: 7, paddingVertical: 5, marginLeft: 8},
+  compareStatusText: {fontSize: 8, fontWeight: '900'},
+  compareSupplierBottom: {flexDirection: 'row', alignItems: 'center', marginTop: 8},
+  compareSupplierPrice: {fontSize: 26, lineHeight: 30, fontWeight: '900'},
+  compareChecked: {fontSize: 9, color: '#747d87', marginTop: 2},
+  cheapestLargePill: {borderRadius: 8, backgroundColor: '#153520', paddingHorizontal: 10, paddingVertical: 7},
+  cheapestLargeText: {fontSize: 9, fontWeight: '900', color: '#57D58A'},
+  comparePromoDetail: {fontSize: 9, fontWeight: '800', marginTop: 7},
+  comparePromotionText: {fontSize: 10, lineHeight: 14, color: '#aeb5bd', marginTop: 3},
   compareCompactHeader: {height: 86, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 16, backgroundColor: '#111419', borderWidth: 1, borderColor: '#1f242c', flexDirection: 'row', alignItems: 'center', marginBottom: 10},
   compareEyebrow: {fontSize: 10, fontWeight: '900', color: '#F5BE28', letterSpacing: 1.3},
   compareTitle: {fontSize: 23, fontWeight: '900', color: '#fff', marginTop: 2},
