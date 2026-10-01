@@ -9,3 +9,5 @@ Phase 4: add promotions.
 Phase 5: add notifications and OCR.
 
 No Expo. No notification libraries. No custom native startup code in Phase 1.
+
+Latest APK build trigger: 2026-10-01.
