@@ -368,6 +368,7 @@ snapshotResult.error ||
   };
 
   const renderDashboard = () => {
+    const dashboardSuppliers = suppliers.filter(supplier => supplier.name === 'Cashbuild Howick');
     const changed = alerts.map(alert => ({
       alert,
       product: products.find(product => product.id === alert.product_id),
@@ -397,16 +398,16 @@ snapshotResult.error ||
 
         <View style={styles.statsRow}>
           <StatCard value={products.length} label="Products" />
-          <StatCard value={suppliers.length} label="Suppliers" />
+          <StatCard value={dashboardSuppliers.length} label="Website monitor" />
           <StatCard value={latest.size} label="Live prices" />
         </View>
 
-        <Text style={styles.sectionTitle}>Current prices</Text>
+        <Text style={styles.sectionTitle}>Cashbuild Howick prices</Text>
         {products.map(product => (
           <View key={product.id} style={styles.productCard}>
             <Text style={styles.productName}>{product.name}</Text>
             <Text style={styles.unit}>{product.unit}</Text>
-            {suppliers.map(supplier => {
+            {dashboardSuppliers.map(supplier => {
               const row = currentPriceRow(supplier.id, product.id);
               const pct = priceChange(supplier.id, product.id);
               return (
@@ -435,7 +436,7 @@ snapshotResult.error ||
         ))}
 
         <Text style={styles.sectionTitle}>Supplier monitoring status</Text>
-        {suppliers.map(supplier => {
+        {dashboardSuppliers.map(supplier => {
           const results = Array.isArray(latestRun?.results) ? latestRun.results.filter(result => result.supplier === supplier.name) : [];
           const hasError = results.some(result => result.status === 'error');
           const hasPrice = results.some(result => ['updated', 'price_changed', 'initial_price', 'unchanged'].includes(result.status));
@@ -677,9 +678,20 @@ snapshotResult.error ||
               <Text style={styles.topSubtitle}>{tabTitle} · Competitor intelligence</Text>
             </View>
           </View>
-          <View style={styles.livePill}>
-            <View style={styles.statusDotSmall} />
-            <Text style={styles.liveText}>LIVE</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.alertButton} onPress={() => setTab('alerts')} accessibilityLabel="Open alerts">
+              <View style={styles.bellBody} />
+              <View style={styles.bellClapper} />
+              {alerts.length > 0 ? (
+                <View style={styles.alertBadge}>
+                  <Text style={styles.alertBadgeText}>{alerts.length > 9 ? '9+' : alerts.length}</Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+            <View style={styles.livePill}>
+              <View style={styles.statusDotSmall} />
+              <Text style={styles.liveText}>LIVE</Text>
+            </View>
           </View>
         </View>
 
@@ -724,7 +736,6 @@ snapshotResult.error ||
           <NavButton label="Products" active={tab === 'products'} onPress={() => setTab('products')} />
           <NavButton label="Manual" active={tab === 'manual'} onPress={() => setTab('manual')} />
           <NavButton label="Promotions" active={tab === 'promotions'} onPress={() => setTab('promotions')} />
-          <NavButton label="Alerts" active={tab === 'alerts'} onPress={() => setTab('alerts')} />
         </View>
       </View>
     </View>
@@ -757,6 +768,12 @@ const styles = StyleSheet.create({
   logoMarkText: {fontSize: 12, fontWeight: '900', color: '#121417', letterSpacing: 0.5},
   logo: {fontSize: 20, fontWeight: '900', color: '#F5BE28', letterSpacing: 0.5},
   topSubtitle: {fontSize: 11, color: '#8e969f', marginTop: 3},
+  headerActions: {flexDirection: 'row', alignItems: 'center', gap: 9},
+  alertButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center', position: 'relative'},
+  bellBody: {width: 23, height: 20, borderWidth: 2, borderColor: '#eef2f5', borderRadius: 12, borderBottomLeftRadius: 7, borderBottomRightRadius: 7},
+  bellClapper: {position: 'absolute', bottom: 7, width: 7, height: 3, borderRadius: 2, backgroundColor: '#eef2f5'},
+  alertBadge: {position: 'absolute', top: 1, right: 1, minWidth: 17, height: 17, paddingHorizontal: 4, borderRadius: 9, backgroundColor: '#ff4545', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#121417'},
+  alertBadgeText: {fontSize: 9, fontWeight: '900', color: '#fff'},
   livePill: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#1d2127', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 7},
   statusDotSmall: {width: 7, height: 7, borderRadius: 4, backgroundColor: '#57c878', marginRight: 6},
   liveText: {fontSize: 11, fontWeight: '800', color: '#dce2e7'},
