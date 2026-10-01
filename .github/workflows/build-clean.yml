@@ -101,7 +101,6 @@ jobs:
 
           urls = {
               'pw_npc_blue': 'https://res.cloudinary.com/agrimark/image/upload/q_auto/f_auto/c_pad%2Ch_570%2Cw_570/v1/uploads/assets/NPC-32-5-00ae90.png',
-              'pw_npc_black': 'https://www.cashbuild.co.za/370-large_default/cement-npc-black-50kg-425n.jpg',
               'pw_double_roman': 'https://www.cashbuild.co.za/32338-small_default/double-roman-roof-tile.jpg',
               'pw_m150': 'https://killarneybrick.co.za/wp-content/uploads/2019/04/m150.jpg',
           }
