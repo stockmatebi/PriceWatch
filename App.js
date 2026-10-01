@@ -722,7 +722,7 @@ snapshotResult.error ||
               <Image source={{uri: 'pricewatch_mark'}} style={styles.logoMarkImage} resizeMode="contain" accessibilityLabel="PriceWatch logo" />
             </View>
             <View>
-              <Text style={styles.logo}>PriceWatch</Text>
+              <Text style={styles.logo}><Text style={styles.logoPrice}>Price</Text><Text style={styles.logoWatch}>Watch</Text></Text>
               <Text style={styles.topSubtitle}>{tabTitle} · Competitor intelligence</Text>
             </View>
           </View>
@@ -815,6 +815,8 @@ const styles = StyleSheet.create({
   logoMark: {width: 46, height: 46, alignItems: 'center', justifyContent: 'center', marginRight: 9},
   logoMarkImage: {width: 46, height: 46},
   logo: {fontSize: 21, fontWeight: '900', color: '#fff', letterSpacing: 0.2},
+  logoPrice: {color: '#fff'},
+  logoWatch: {color: '#FF3340'},
   topSubtitle: {fontSize: 11, color: '#8b929b', marginTop: 3, letterSpacing: 0.15},
   headerActions: {flexDirection: 'row', alignItems: 'center', gap: 9},
   alertButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center', position: 'relative'},
