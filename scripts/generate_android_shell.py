@@ -51,11 +51,11 @@ s = build_gradle.read_text()
 if "buildFeatures {" not in s:
     s = s.replace(
         "android {",
-        "android {\\n    buildFeatures {\\n        buildConfig true\\n    }",
+        "android {\n    buildFeatures {\n        buildConfig true\n    }",
         1,
     )
 elif "buildConfig true" not in s:
-    s = s.replace("buildFeatures {", "buildFeatures {\\n        buildConfig true", 1)
+    s = s.replace("buildFeatures {", "buildFeatures {\n        buildConfig true", 1)
 
 s = s.replace('namespace "com.pricewatchnative"', 'namespace "com.pricewatch.app"')
 s = s.replace("namespace 'com.pricewatchnative'", "namespace 'com.pricewatch.app'")
