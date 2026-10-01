@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
+  Image,
   Linking,
   RefreshControl,
   ScrollView,
@@ -15,6 +16,15 @@ import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-contex
 import {supabase} from './lib/supabase';
 
 const money = value => (value == null ? '—' : `R${Number(value).toFixed(2)}`);
+
+const productImageResource = product => {
+  const name = String(product?.name || '').toLowerCase();
+  if (name.includes('npc original blue')) return 'pw_npc_blue';
+  if (name.includes('npc original black')) return 'pw_npc_black';
+  if (name.includes('double roman')) return 'pw_double_roman';
+  if (name.includes('m140') || name.includes('m150')) return 'pw_m150';
+  return null;
+};
 
 const timeLabel = value => {
   if (!value) return 'Not checked';
@@ -480,49 +490,87 @@ snapshotResult.error ||
 
   const renderCompare = () => (
     <>
-      <Text style={styles.sectionTitle}>Supplier comparison</Text>
-      <Text style={styles.pageIntro}>Current prices side-by-side. Lowest available price is highlighted.</Text>
+      <View style={styles.compareHero}>
+        <View style={{flex: 1}}>
+          <Text style={styles.compareEyebrow}>LIVE PRICE INTELLIGENCE</Text>
+          <Text style={styles.compareTitle}>Best pricing</Text>
+          <Text style={styles.compareIntro}>See the lowest available price for each monitored product.</Text>
+        </View>
+        <View style={styles.compareHeroMark}>
+          <Text style={styles.compareHeroArrow}>↗</Text>
+        </View>
+      </View>
+
       {products.map(product => {
         const rows = suppliers
           .map(supplier => ({supplier, row: currentPriceRow(supplier.id, product.id)}))
           .filter(item => item.row?.price != null)
           .sort((a, b) => Number(a.row.price) - Number(b.row.price));
+
         const lowest = rows[0]?.row?.price;
+        const lowestRows = lowest == null
+          ? []
+          : rows.filter(item => Number(item.row.price) === Number(lowest));
+        const cheapestSupplier = lowestRows.map(item => item.supplier.name).join(' · ');
+        const imageResource = productImageResource(product);
+
         return (
-          <View key={product.id} style={styles.productCard}>
-            <Text style={styles.productName}>{product.name}</Text>
-            <Text style={styles.unit}>{product.unit}</Text>
-            {rows.length === 0 ? (
-              <Text style={styles.noData}>No current prices available.</Text>
-            ) : rows.map((item, index) => (
-              <View key={item.supplier.id} style={styles.compareRow}>
-                <View style={{flex: 1}}>
-                  <Text style={styles.supplierName}>{item.supplier.name}</Text>
-                  <Text style={styles.checked}>{timeLabel(item.row.checked_at)}</Text>
-                </View>
-                <View style={{alignItems: 'flex-end'}}>
-                  <Text style={[styles.price, item.row.source_type === 'manual' && styles.manualPrice, Number(item.row.price) === Number(lowest) && styles.lowestPrice]}>
-                    {money(item.row.price)}
-                  </Text>
-                  {item.row.source_type === 'manual' ? <Text style={styles.manualBadgeText}>MANUAL</Text> : null}
-                  {(() => {
-                    const status = priceStatusForRow(item.row);
-                    return status ? (
-                      <View style={[styles.validityBadge, {backgroundColor: status.background}]}>
-                        <Text style={[styles.validityBadgeText, {color: status.color}]}>{status.label}</Text>
-                      </View>
-                    ) : null;
-                  })()}
-                  {Number(item.row.price) === Number(lowest) && <Text style={styles.lowestLabel}>LOWEST AVAILABLE</Text>}
-                </View>
+          <View key={product.id} style={styles.bestPriceCard}>
+            <View style={styles.bestPriceTop}>
+              <View style={styles.productImageWrap}>
+                {imageResource ? (
+                  <Image
+                    source={{uri: imageResource}}
+                    style={styles.productImage}
+                    resizeMode="contain"
+                    accessibilityLabel={product.name}
+                  />
+                ) : (
+                  <View style={styles.productImageFallback}>
+                    <Text style={styles.productImageFallbackText}>PRICE</Text>
+                  </View>
+                )}
               </View>
-            ))}
+
+              <View style={styles.bestPriceInfo}>
+                <Text style={styles.bestPriceProduct}>{product.name}</Text>
+                <Text style={styles.unit}>{product.unit}</Text>
+
+                {lowest == null ? (
+                  <Text style={styles.bestPriceUnavailable}>PRICE NOT AVAILABLE</Text>
+                ) : (
+                  <>
+                    <Text style={styles.bestPriceLabel}>BEST AVAILABLE PRICE</Text>
+                    <Text style={styles.bestPriceValue}>{money(lowest)}</Text>
+                    <View style={styles.cheapestPill}>
+                      <View style={styles.cheapestDot} />
+                      <Text style={styles.cheapestPillText}>CHEAPEST AT {cheapestSupplier}</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+
+            {rows.length > 1 ? (
+              <View style={styles.otherPrices}>
+                <Text style={styles.otherPricesTitle}>OTHER AVAILABLE PRICES</Text>
+                {rows.slice(1, 4).map(item => (
+                  <View key={item.supplier.id} style={styles.otherPriceRow}>
+                    <Text style={styles.otherSupplier}>{item.supplier.name}</Text>
+                    <Text style={styles.otherPrice}>{money(item.row.price)}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {rows.length === 1 ? (
+              <Text style={styles.singlePriceNote}>Only one current supplier price is available.</Text>
+            ) : null}
           </View>
         );
       })}
     </>
   );
-
   const renderHistory = () => (
     <>
       <Text style={styles.sectionTitle}>Price history</Text>
@@ -671,7 +719,7 @@ snapshotResult.error ||
         <View style={styles.topBar}>
           <View style={styles.brandBlock}>
             <View style={styles.logoMark}>
-              <Text style={styles.logoMarkText}>PW</Text>
+              <Image source={{uri: 'pricewatch_mark'}} style={styles.logoMarkImage} resizeMode="contain" accessibilityLabel="PriceWatch logo" />
             </View>
             <View>
               <Text style={styles.logo}>PriceWatch</Text>
@@ -760,14 +808,14 @@ function NavButton({label, active, onPress}) {
 }
 
 const styles = StyleSheet.create({
-  safe: {flex: 1, backgroundColor: '#121417'},
-  container: {flex: 1, backgroundColor: '#121417'},
-  topBar: {paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#252a31'},
+  safe: {flex: 1, backgroundColor: '#08090d'},
+  container: {flex: 1, backgroundColor: '#08090d'},
+  topBar: {paddingHorizontal: 16, paddingTop: 12, paddingBottom: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#171b21'},
   brandBlock: {flexDirection: 'row', alignItems: 'center'},
-  logoMark: {width: 34, height: 34, borderRadius: 9, backgroundColor: '#F5BE28', alignItems: 'center', justifyContent: 'center', marginRight: 9},
-  logoMarkText: {fontSize: 12, fontWeight: '900', color: '#121417', letterSpacing: 0.5},
-  logo: {fontSize: 20, fontWeight: '900', color: '#F5BE28', letterSpacing: 0.5},
-  topSubtitle: {fontSize: 11, color: '#8e969f', marginTop: 3},
+  logoMark: {width: 46, height: 46, alignItems: 'center', justifyContent: 'center', marginRight: 9},
+  logoMarkImage: {width: 46, height: 46},
+  logo: {fontSize: 21, fontWeight: '900', color: '#fff', letterSpacing: 0.2},
+  topSubtitle: {fontSize: 11, color: '#8b929b', marginTop: 3, letterSpacing: 0.15},
   headerActions: {flexDirection: 'row', alignItems: 'center', gap: 9},
   alertButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center', position: 'relative'},
   bellBody: {width: 23, height: 20, borderWidth: 2, borderColor: '#eef2f5', borderRadius: 12, borderBottomLeftRadius: 7, borderBottomRightRadius: 7},
@@ -779,7 +827,33 @@ const styles = StyleSheet.create({
   liveText: {fontSize: 11, fontWeight: '800', color: '#dce2e7'},
   scroll: {flex: 1},
   content: {padding: 14, paddingBottom: 26},
-  hero: {padding: 17, borderRadius: 18, backgroundColor: '#1d2127', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
+  compareHero: {padding: 17, borderRadius: 18, backgroundColor: '#111419', borderWidth: 1, borderColor: '#1f242c', flexDirection: 'row', alignItems: 'center', marginBottom: 14},
+  compareEyebrow: {fontSize: 10, fontWeight: '900', color: '#F5BE28', letterSpacing: 1.3},
+  compareTitle: {fontSize: 28, fontWeight: '900', color: '#fff', marginTop: 3},
+  compareIntro: {fontSize: 12, lineHeight: 18, color: '#9299a2', marginTop: 3, maxWidth: 260},
+  compareHeroMark: {width: 52, height: 52, borderRadius: 26, backgroundColor: '#181d24', alignItems: 'center', justifyContent: 'center', marginLeft: 12},
+  compareHeroArrow: {fontSize: 34, fontWeight: '900', color: '#ff3340', marginTop: -3},
+  bestPriceCard: {backgroundColor: '#111419', borderRadius: 18, borderWidth: 1, borderColor: '#1f242c', padding: 14, marginBottom: 12},
+  bestPriceTop: {flexDirection: 'row', alignItems: 'center'},
+  productImageWrap: {width: 122, height: 122, alignItems: 'center', justifyContent: 'center', marginRight: 12},
+  productImage: {width: 116, height: 116},
+  productImageFallback: {width: 100, height: 100, borderRadius: 18, backgroundColor: '#181d24', alignItems: 'center', justifyContent: 'center'},
+  productImageFallbackText: {fontSize: 10, fontWeight: '900', color: '#666f79'},
+  bestPriceInfo: {flex: 1, minWidth: 0},
+  bestPriceProduct: {fontSize: 17, lineHeight: 21, fontWeight: '900', color: '#fff'},
+  bestPriceLabel: {fontSize: 9, fontWeight: '900', color: '#8e969f', letterSpacing: 0.7, marginTop: 12},
+  bestPriceValue: {fontSize: 28, lineHeight: 32, fontWeight: '900', color: '#ff3340', marginTop: 1},
+  bestPriceUnavailable: {fontSize: 11, fontWeight: '900', color: '#777f89', marginTop: 12},
+  cheapestPill: {alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: '#153520', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 6, marginTop: 7, maxWidth: '100%'},
+  cheapestDot: {width: 7, height: 7, borderRadius: 4, backgroundColor: '#38d66b', marginRight: 6},
+  cheapestPillText: {fontSize: 9, fontWeight: '900', color: '#5be582', flexShrink: 1},
+  otherPrices: {borderTopWidth: 1, borderTopColor: '#20252c', marginTop: 13, paddingTop: 10},
+  otherPricesTitle: {fontSize: 9, fontWeight: '900', color: '#747c86', letterSpacing: 0.7, marginBottom: 4},
+  otherPriceRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6},
+  otherSupplier: {fontSize: 11, color: '#aeb5bd', flex: 1},
+  otherPrice: {fontSize: 13, fontWeight: '800', color: '#dce1e6'},
+  singlePriceNote: {fontSize: 10, color: '#6f7781', marginTop: 10},
+  hero: {padding: 17, borderRadius: 18, backgroundColor: '#111419', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   eyebrow: {fontSize: 10, fontWeight: '800', color: '#F5BE28', letterSpacing: 1.3},
   heroTitle: {fontSize: 27, fontWeight: '800', color: '#fff', marginTop: 5},
   heroText: {fontSize: 13, color: '#aeb4bc', marginTop: 4, maxWidth: 230},
@@ -790,19 +864,19 @@ const styles = StyleSheet.create({
   statusTitle: {fontSize: 14, fontWeight: '800', color: '#e7f6eb'},
   statusText: {fontSize: 12, color: '#a9b7ae', marginTop: 2},
   statsRow: {flexDirection: 'row', gap: 8, marginTop: 12},
-  statCard: {flex: 1, backgroundColor: '#1d2127', borderRadius: 13, padding: 12},
+  statCard: {flex: 1, backgroundColor: '#111419', borderRadius: 13, padding: 12},
   statValue: {fontSize: 21, fontWeight: '900', color: '#F5BE28'},
   statLabel: {fontSize: 10, color: '#8f98a1', marginTop: 3},
   sectionTitle: {fontSize: 19, fontWeight: '800', color: '#fff', marginTop: 22, marginBottom: 8},
   pageIntro: {fontSize: 13, color: '#9da5ad', lineHeight: 19, marginBottom: 10},
-  productCard: {backgroundColor: '#1d2127', borderRadius: 16, padding: 15, marginBottom: 12},
+  productCard: {backgroundColor: '#111419', borderRadius: 16, padding: 15, marginBottom: 12},
   productName: {fontSize: 16, fontWeight: '800', color: '#fff'},
   unit: {fontSize: 12, color: '#8f98a1', marginTop: 3},
   priceRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderTopWidth: 1, borderTopColor: '#2a2f36', marginTop: 9},
   supplierName: {fontSize: 13, fontWeight: '700', color: '#dce1e6'},
   checked: {fontSize: 10, color: '#7f8790', marginTop: 2},
   priceRight: {alignItems: 'flex-end', marginLeft: 10},
-  price: {fontSize: 18, fontWeight: '900', color: '#F5BE28'},
+  price: {fontSize: 18, fontWeight: '900', color: '#ff3340'},
   change: {fontSize: 10, fontWeight: '900', color: '#9da5ad', marginTop: 2},
   changeUp: {color: '#ff7777'},
   changeDown: {color: '#57d58a'},
@@ -816,7 +890,7 @@ const styles = StyleSheet.create({
   monitorWarn: {fontSize: 9, fontWeight: '900', color: '#F5BE28', textAlign: 'right'},
   monitorError: {fontSize: 9, fontWeight: '900', color: '#ff7777', textAlign: 'right'},
   historyRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#2a2f36', marginTop: 7},
-  simpleCard: {backgroundColor: '#1d2127', borderRadius: 15, padding: 16, marginBottom: 10},
+  simpleCard: {backgroundColor: '#111419', borderRadius: 15, padding: 16, marginBottom: 10},
   smallText: {fontSize: 13, lineHeight: 19, color: '#b8bec5', marginTop: 10},
   link: {fontSize: 13, fontWeight: '800', color: '#F5BE28', marginTop: 12},
   manualNotice: {backgroundColor: '#172631', borderRadius: 14, padding: 13, marginBottom: 12, borderWidth: 1, borderColor: '#28506a'},
@@ -836,13 +910,13 @@ const styles = StyleSheet.create({
   manualPrice: {color: '#4FC3F7'},
   manualBadgeText: {fontSize: 8, fontWeight: '900', color: '#4FC3F7', marginTop: 2},
   manualLegendText: {fontSize: 10, fontWeight: '800', color: '#4FC3F7', marginTop: 5},
-  emptyCard: {backgroundColor: '#1d2127', borderRadius: 15, padding: 18, marginTop: 4},
+  emptyCard: {backgroundColor: '#111419', borderRadius: 15, padding: 18, marginTop: 4},
   emptyTitle: {fontSize: 16, fontWeight: '800', color: '#fff'},
   emptyText: {fontSize: 13, lineHeight: 20, color: '#aeb4bc', marginTop: 8},
   noData: {fontSize: 13, color: '#858d96', marginTop: 12},
   validityBadge: {borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, marginTop: 4},
   validityBadgeText: {fontSize: 8, fontWeight: '900'},
-  legendCard: {backgroundColor: '#1d2127', borderRadius: 14, padding: 13, marginBottom: 8},
+  legendCard: {backgroundColor: '#111419', borderRadius: 14, padding: 13, marginBottom: 8},
   legendTitle: {fontSize: 13, fontWeight: '800', color: '#fff', marginBottom: 8},
   legendRow: {flexDirection: 'row', alignItems: 'center', marginTop: 5},
   legendDot: {width: 8, height: 8, borderRadius: 4, marginRight: 7},
@@ -861,7 +935,7 @@ const styles = StyleSheet.create({
   errorText: {fontSize: 13, lineHeight: 20, color: '#d7bcbc', marginTop: 7},
   retryButton: {alignSelf: 'flex-start', marginTop: 14, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 9, backgroundColor: '#F5BE28'},
   retryText: {fontWeight: '800', color: '#121417'},
-  nav: {height: 64, borderTopWidth: 1, borderTopColor: '#252a31', backgroundColor: '#0e1012', flexDirection: 'row'},
+  nav: {height: 70, borderTopWidth: 1, borderTopColor: '#171b21', backgroundColor: '#08090d', flexDirection: 'row'},
   navButton: {flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2},
   navText: {fontSize: 8, fontWeight: '700', color: '#7f8790'},
   navTextActive: {color: '#F5BE28'},
