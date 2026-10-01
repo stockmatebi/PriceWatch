@@ -27,6 +27,38 @@ const timeLabel = value => {
   });
 };
 
+const dateKey = value => (value ? String(value).slice(0, 10) : null);
+
+const formatDateOnly = value => {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-ZA', {day: '2-digit', month: 'short', year: 'numeric'});
+};
+
+const getPromotionStatus = promotion => {
+  if (!promotion) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const from = dateKey(promotion.valid_from);
+  const until = dateKey(promotion.valid_until);
+
+  if (from && today < from) {
+    return {key: 'outside', label: 'NOT YET VALID', color: '#ff7777', background: '#351f1f'};
+  }
+  if (until && today > until) {
+    return {key: 'expired', label: 'SPECIAL EXPIRED', color: '#ff7777', background: '#351f1f'};
+  }
+  if (from || until) {
+    const range = from && until
+      ? `Valid ${formatDateOnly(from)}–${formatDateOnly(until)}`
+      : until
+        ? `Valid until ${formatDateOnly(until)}`
+        : `Valid from ${formatDateOnly(from)}`;
+    return {key: 'valid', label: 'SPECIAL VALID', detail: range, color: '#57d58a', background: '#183022'};
+  }
+  return {key: 'unknown', label: 'VALIDITY UNKNOWN', color: '#F5BE28', background: '#332c18'};
+};
+
 const changePct = (current, previous) => {
   if (current == null || previous == null || Number(previous) === 0) return null;
   return ((Number(current) - Number(previous)) / Number(previous)) * 100;
@@ -66,7 +98,7 @@ function PriceWatchApp() {
           .limit(500),
         supabase
           .from('pw_promotions')
-          .select('id,supplier_id,platform,title,text,image_url,post_url,posted_at,detected_at,ai_summary,is_promotion,confidence')
+          .select('id,supplier_id,platform,title,text,image_url,post_url,posted_at,detected_at,ai_summary,is_promotion,confidence,valid_from,valid_until,validity_type,validity_text,validity_confidence')
           .eq('is_promotion', true)
           .order('detected_at', {ascending: false})
           .limit(50),
@@ -144,6 +176,13 @@ function PriceWatchApp() {
     if (url) Linking.openURL(url).catch(() => {});
   };
 
+  const promotionForRow = row => {
+    if (!row || row.source_type !== 'facebook' || !row.source_url) return null;
+    return promotions.find(promotion => promotion.supplier_id === row.supplier_id && promotion.post_url === row.source_url) || null;
+  };
+
+  const priceStatusForRow = row => getPromotionStatus(promotionForRow(row));
+
   const priceChange = (supplierId, productId) =>
     changePct(
       latest.get(`${supplierId}|${productId}`)?.price,
@@ -213,6 +252,14 @@ function PriceWatchApp() {
                   </View>
                   <View style={styles.priceRight}>
                     <Text style={styles.price}>{money(row?.price)}</Text>
+                    {(() => {
+                      const status = priceStatusForRow(row);
+                      return status ? (
+                        <View style={[styles.validityBadge, {backgroundColor: status.background}]}>
+                          <Text style={[styles.validityBadgeText, {color: status.color}]}>{status.label}</Text>
+                        </View>
+                      ) : null;
+                    })()}
                     {renderChange(pct, true)}
                   </View>
                 </View>
@@ -290,6 +337,14 @@ function PriceWatchApp() {
                   <Text style={[styles.price, Number(item.row.price) === Number(lowest) && styles.lowestPrice]}>
                     {money(item.row.price)}
                   </Text>
+                  {(() => {
+                    const status = priceStatusForRow(item.row);
+                    return status ? (
+                      <View style={[styles.validityBadge, {backgroundColor: status.background}]}>
+                        <Text style={[styles.validityBadgeText, {color: status.color}]}>{status.label}</Text>
+                      </View>
+                    ) : null;
+                  })()}
                   {Number(item.row.price) === Number(lowest) && <Text style={styles.lowestLabel}>LOWEST AVAILABLE</Text>}
                 </View>
               </View>
@@ -360,6 +415,12 @@ function PriceWatchApp() {
   const renderPromotions = () => (
     <>
       <Text style={styles.sectionTitle}>Promotions</Text>
+      <View style={styles.legendCard}>
+        <Text style={styles.legendTitle}>Promotion price status</Text>
+        <View style={styles.legendRow}><View style={[styles.legendDot, {backgroundColor: '#57d58a'}]} /><Text style={styles.legendText}>GREEN · Promotion is currently within its stated validity period</Text></View>
+        <View style={styles.legendRow}><View style={[styles.legendDot, {backgroundColor: '#ff7777'}]} /><Text style={styles.legendText}>RED · Promotion period has passed or is outside the stated dates</Text></View>
+        <View style={styles.legendRow}><View style={[styles.legendDot, {backgroundColor: '#F5BE28'}]} /><Text style={styles.legendText}>AMBER · No clear validity period was detected</Text></View>
+      </View>
       {promotions.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No promotions detected yet</Text>
@@ -370,6 +431,17 @@ function PriceWatchApp() {
           <Text style={styles.productName}>{promotion.title || 'Supplier promotion'}</Text>
           <Text style={styles.unit}>{promotion.platform || 'Source'} · {timeLabel(promotion.posted_at || promotion.detected_at)}</Text>
           <Text style={styles.smallText}>{promotion.ai_summary || promotion.text || 'Promotion detected.'}</Text>
+          {(() => {
+            const status = getPromotionStatus(promotion);
+            return status ? (
+              <View style={[styles.promotionStatusCard, {backgroundColor: status.background}]}>
+                <Text style={[styles.promotionStatusTitle, {color: status.color}]}>{status.label}</Text>
+                <Text style={[styles.promotionStatusText, {color: status.color}]}>
+                  {status.detail || promotion.validity_text || 'The promotion validity could not be established from the post.'}
+                </Text>
+              </View>
+            ) : null;
+          })()}
           {promotion.post_url ? (
             <TouchableOpacity onPress={() => openUrl(promotion.post_url)}>
               <Text style={styles.link}>View original promotion</Text>
@@ -513,6 +585,16 @@ const styles = StyleSheet.create({
   emptyTitle: {fontSize: 16, fontWeight: '800', color: '#fff'},
   emptyText: {fontSize: 13, lineHeight: 20, color: '#aeb4bc', marginTop: 8},
   noData: {fontSize: 13, color: '#858d96', marginTop: 12},
+  validityBadge: {borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, marginTop: 4},
+  validityBadgeText: {fontSize: 8, fontWeight: '900'},
+  legendCard: {backgroundColor: '#1d2127', borderRadius: 14, padding: 13, marginBottom: 8},
+  legendTitle: {fontSize: 13, fontWeight: '800', color: '#fff', marginBottom: 8},
+  legendRow: {flexDirection: 'row', alignItems: 'center', marginTop: 5},
+  legendDot: {width: 8, height: 8, borderRadius: 4, marginRight: 7},
+  legendText: {flex: 1, fontSize: 10, color: '#aeb4bc', lineHeight: 14},
+  promotionStatusCard: {borderRadius: 9, padding: 9, marginTop: 11},
+  promotionStatusTitle: {fontSize: 10, fontWeight: '900'},
+  promotionStatusText: {fontSize: 10, marginTop: 3, lineHeight: 14},
   loading: {flex: 1, alignItems: 'center', justifyContent: 'center'},
   loadingText: {color: '#aeb4bc', marginTop: 12},
   errorCard: {margin: 16, padding: 18, borderRadius: 15, backgroundColor: '#2b1c1c'},
