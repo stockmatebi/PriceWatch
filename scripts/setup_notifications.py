@@ -178,7 +178,7 @@ class PriceWatchNotificationReceiver : BroadcastReceiver() {
 
 manifest = root / "app/src/main/AndroidManifest.xml"
 s = manifest.read_text()
-perm = '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n'
+perm = '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />\n'
 if 'android.permission.POST_NOTIFICATIONS' not in s:
     s = s.replace('<manifest', '<manifest', 1)
     s = s.replace('    <uses-permission android:name="android.permission.INTERNET" />\n', '    <uses-permission android:name="android.permission.INTERNET" />\n' + perm)
