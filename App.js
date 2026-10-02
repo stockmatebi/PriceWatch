@@ -55,6 +55,40 @@ const formatDateOnly = value => {
   return date.toLocaleDateString('en-ZA', {day: '2-digit', month: 'short', year: 'numeric'});
 };
 
+const CASHBUILD_HOWICK_CEMENT_URL = 'https://www.cashbuild.co.za/539-cement?store=S243';
+
+const normalizeHtmlText = html =>
+  String(html || '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&#160;/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const extractCashbuildProductPrice = (html, productName) => {
+  const text = normalizeHtmlText(html);
+  const start = text.toLowerCase().indexOf(productName.toLowerCase());
+  if (start < 0) return null;
+  const nearby = text.slice(start, start + 700);
+  const match = nearby.match(/R\s*([0-9][0-9\s]*\.[0-9]{2})/i);
+  if (!match) return null;
+  const price = Number(match[1].replace(/\s/g, ''));
+  return Number.isFinite(price) ? Number(price.toFixed(2)) : null;
+};
+
+const fetchCashbuildHowickVerifiedPrices = async () => {
+  const response = await fetch(CASHBUILD_HOWICK_CEMENT_URL, {
+    headers: {'User-Agent': 'PriceWatch/1.0'},
+  });
+  if (!response.ok) {
+    throw new Error(`Cashbuild returned HTTP ${response.status}`);
+  }
+  const html = await response.text();
+  const blue = extractCashbuildProductPrice(html, 'Cement NPC Blue 50kg 32.5n');
+  const black = extractCashbuildProductPrice(html, 'Cement NPC Black 50kg 42.5n');
+  if (blue == null || black == null) throw new Error('Cashbuild Howick product identity/price validation failed.');
+  return {blue, black, checked_at: new Date().toISOString(), source_url: CASHBUILD_HOWICK_CEMENT_URL, source_type: 'verified_live', confidence: 1};
+};
 const getPromotionStatus = promotion => {
   if (!promotion) return null;
   const today = new Date().toISOString().slice(0, 10);
@@ -109,6 +143,7 @@ function PriceWatchApp() {
   const [promotions, setPromotions] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [latestRun, setLatestRun] = useState(null);
+  const [verifiedCashbuild, setVerifiedCashbuild] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -169,6 +204,13 @@ snapshotResult.error ||
       return;
     }
 
+    try {
+      const verified = await fetchCashbuildHowickVerifiedPrices();
+      setVerifiedCashbuild(verified);
+    } catch (cashbuildError) {
+      setVerifiedCashbuild(null);
+    }
+
     setSuppliers(supplierResult.data || []);
     setProducts(productResult.data || []);
     setSnapshots(snapshotResult.data || []);
@@ -224,8 +266,30 @@ snapshotResult.error ||
     return map;
   }, [manualPrices]);
 
+  const supplierById = useMemo(() => {
+    const map = new Map();
+    for (const supplier of suppliers) map.set(supplier.id, supplier);
+    return map;
+  }, [suppliers]);
+
   const currentPriceRow = (supplierId, productId) => {
     const manual = manualByKey.get(`${supplierId}|${productId}`);
+    const supplier = supplierById.get(supplierId);
+    const product = products.find(item => item.id === productId);
+
+    if (supplier?.name === 'Cashbuild Howick' && verifiedCashbuild && product) {
+      const productName = String(product.name || '').toLowerCase();
+      if (productName.includes('npc original blue')) {
+        return {supplier_id: supplierId, product_id: productId, price: verifiedCashbuild.blue, checked_at: verifiedCashbuild.checked_at, source_url: verifiedCashbuild.source_url, source_type: verifiedCashbuild.source_type, confidence: verifiedCashbuild.confidence};
+      }
+      if (productName.includes('npc original black')) {
+        return {supplier_id: supplierId, product_id: productId, price: verifiedCashbuild.black, checked_at: verifiedCashbuild.checked_at, source_url: verifiedCashbuild.source_url, source_type: verifiedCashbuild.source_type, confidence: verifiedCashbuild.confidence};
+      }
+    }
+
+    if (supplier?.name === 'Cashbuild Howick' && !verifiedCashbuild && !manual) {
+      return null;
+    }
     if (manual) {
       return {...manual, source_type: 'manual', checked_at: manual.updated_at};
     }
