@@ -233,6 +233,15 @@ snapshotResult.error ||
   const historyByKey = useMemo(() => {
     const map = new Map();
     for (const row of snapshots) {
+      const supplier = suppliers.find(item => item.id === row.supplier_id);
+      const product = products.find(item => item.id === row.product_id);
+      const productName = String(product?.name || '').toLowerCase();
+      const isCashbuildNpc = supplier?.name === 'Cashbuild Howick' &&
+        (productName.includes('npc original blue') || productName.includes('npc original black'));
+
+      // Do not expose legacy Cashbuild snapshots whose product identity was not verified.
+      if (isCashbuildNpc) continue;
+
       const key = `${row.supplier_id}|${row.product_id}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(row);
@@ -966,12 +975,27 @@ snapshotResult.error ||
     <>
       <Text style={styles.sectionTitle}>Price alerts</Text>
       <Text style={styles.pageIntro}>PriceWatch checks for changes automatically every hour while monitoring is active.</Text>
-      {alerts.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No price alerts yet</Text>
-          <Text style={styles.emptyText}>When a monitored supplier price changes, the alert will appear here automatically.</Text>
-        </View>
-      ) : alerts.map(alert => {
+      {(() => {
+        const today = new Date().toISOString().slice(0, 10);
+        const visibleAlerts = alerts.filter(alert => {
+          const product = products.find(item => item.id === alert.product_id);
+          const supplier = suppliers.find(item => item.id === alert.supplier_id);
+          const productName = String(product?.name || '').toLowerCase();
+          const isCashbuildNpc = supplier?.name === 'Cashbuild Howick' &&
+            (productName.includes('npc original blue') || productName.includes('npc original black'));
+          if (!isCashbuildNpc || !verifiedCashbuild || !alert.detected_at) return true;
+          const detectedDate = new Date(alert.detected_at).toISOString().slice(0, 10);
+          if (detectedDate !== today) return true;
+          const expected = productName.includes('npc original blue') ? verifiedCashbuild.blue : verifiedCashbuild.black;
+          return Number(alert.new_price) === Number(expected);
+        });
+
+        return visibleAlerts.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No verified price alerts yet</Text>
+            <Text style={styles.emptyText}>PriceWatch will only show a Cashbuild Howick NPC alert when the product name and price have been verified against the supplier page.</Text>
+          </View>
+        ) : visibleAlerts.map(alert => {
         const product = products.find(item => item.id === alert.product_id);
         const supplier = suppliers.find(item => item.id === alert.supplier_id);
         const increase = Number(alert.percentage_change) > 0;
@@ -991,6 +1015,8 @@ snapshotResult.error ||
           </View>
         );
       })}
+        );
+      })()}
     </>
   );
 
