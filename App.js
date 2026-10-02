@@ -1014,6 +1014,7 @@ snapshotResult.error ||
             </View>
           </View>
         );
+      });
       })()}
     </>
   );
