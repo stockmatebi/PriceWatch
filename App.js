@@ -247,7 +247,7 @@ snapshotResult.error ||
       map.get(key).push(row);
     }
     return map;
-  }, [snapshots]);
+  }, [snapshots, suppliers, products]);
 
   const latest = useMemo(() => {
     const map = new Map();
@@ -1013,8 +1013,6 @@ snapshotResult.error ||
               </Text>
             </View>
           </View>
-        );
-      })}
         );
       })()}
     </>
