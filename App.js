@@ -101,9 +101,9 @@ const parsePromotionDates = text => {
   const day = '[0-9]{1,2}(?:st|nd|rd|th)?';
   const sep = '(?:to|through|[-–—])';
   const patterns = [
-    new RegExp(day+'\\\\s*'+month+'\\\\s*'+sep+'\\\\s*'+day+'\\\\s*'+month+'\\\\s*,?\\\\s*([0-9]{4})', 'i'),
-    new RegExp(day+'\\\\s*'+sep+'\\\\s*'+day+'\\\\s*'+month+'\\\\s*,?\\\\s*([0-9]{4})', 'i'),
-    new RegExp(day+'\\\\s*'+month+'\\\\s*'+sep+'\\\\s*'+day+'\\\\s*'+month+'\\\\s*,?\\\\s*([0-9]{4})', 'i')
+    new RegExp(day+'\\s*'+month+'\\s*'+sep+'\\s*'+day+'\\s*'+month+'\\s*,?\\s*([0-9]{4})', 'i'),
+    new RegExp(day+'\\s*'+sep+'\\s*'+day+'\\s*'+month+'\\s*,?\\s*([0-9]{4})', 'i'),
+    new RegExp(day+'\\s*'+month+'\\s*'+sep+'\\s*'+day+'\\s*'+month+'\\s*,?\\s*([0-9]{4})', 'i')
   ];
   for (const pattern of patterns) {
     const match = source.match(pattern);
