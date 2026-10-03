@@ -92,7 +92,7 @@ const fetchCashbuildHowickVerifiedPrices = async () => {
   return {blue, black, checked_at: new Date().toISOString(), source_url: CASHBUILD_HOWICK_CEMENT_URL, source_type: 'verified_live', confidence: 1};
 };
 const parsePromotionDates = text => {
-  const source = String(text || '').replace(/\\s+/g, ' ').trim();
+  const source = String(text || '').replace(/\s+/g, ' ').trim();
   const months = {
     january:1, february:2, march:3, april:4, may:5, june:6,
     july:7, august:8, september:9, october:10, november:11, december:12
