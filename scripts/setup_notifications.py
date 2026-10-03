@@ -42,6 +42,8 @@ object PriceWatchNotifications {
 
     fun start(context: Context) {
         createChannel(context)
+        // Clear stale system notifications when the app is opened. Pending alerts are rechecked immediately below.
+        NotificationManagerCompat.from(context).cancelAll()
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, PriceWatchNotificationReceiver::class.java).setAction(ACTION_CHECK)
         val pending = PendingIntent.getBroadcast(context, 7711, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
