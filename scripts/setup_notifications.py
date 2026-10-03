@@ -47,6 +47,8 @@ object PriceWatchNotifications {
         val pending = PendingIntent.getBroadcast(context, 7711, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         alarmManager.cancel(pending)
         alarmManager.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + 30_000L, INTERVAL_MS, pending)
+        // Check immediately when the app is opened so existing alerts are not delayed.
+        Thread { check(context.applicationContext) }.start()
     }
 
     fun handle(context: Context, action: String?) {
