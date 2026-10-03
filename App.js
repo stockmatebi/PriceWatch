@@ -184,6 +184,8 @@ function PriceWatchApp() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [promotionFilter, setPromotionFilter] = useState('all');
 
   const loadData = useCallback(async () => {
     setError('');
@@ -577,6 +579,35 @@ snapshotResult.error ||
           <StatCard value={products.length} label="Products" />
           <StatCard value={suppliers.length} label="Suppliers" />
           <StatCard value={latest.size + manualPrices.length} label="Current prices" />
+        </View>
+
+        <View style={styles.intelligenceCard}>
+          <View style={styles.intelligenceHeader}>
+            <View>
+              <Text style={styles.intelligenceEyebrow}>TODAY'S INTELLIGENCE</Text>
+              <Text style={styles.intelligenceTitle}>What changed</Text>
+            </View>
+            <Text style={styles.intelligenceTime}>LIVE</Text>
+          </View>
+          <View style={styles.intelligenceGrid}>
+            <TouchableOpacity style={styles.intelligenceMetric} onPress={() => setTab('alerts')}>
+              <Text style={styles.intelligenceValue}>{alerts.filter(a => new Date(a.detected_at) >= new Date(Date.now() - 86400000)).length}</Text>
+              <Text style={styles.intelligenceLabel}>PRICE CHANGES</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.intelligenceMetric} onPress={() => { setPromotionFilter('active'); setTab('promotions'); }}>
+              <Text style={styles.intelligenceValue}>{promotions.filter(p => getPromotionStatus(p)?.key === 'valid').length}</Text>
+              <Text style={styles.intelligenceLabel}>ACTIVE SPECIALS</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.intelligenceMetric} onPress={() => { setPromotionFilter('expiring'); setTab('promotions'); }}>
+              <Text style={styles.intelligenceValue}>{promotions.filter(p => {
+                const s = getPromotionStatus(p);
+                if (!s || s.key !== 'valid' || !p.valid_until) return false;
+                const days = Math.ceil((new Date(p.valid_until) - new Date(new Date().toISOString().slice(0,10))) / 86400000);
+                return days >= 0 && days <= 3;
+              }).length}</Text>
+              <Text style={styles.intelligenceLabel}>EXPIRING ≤3 DAYS</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Text style={styles.sectionTitle}>All supplier prices</Text>
@@ -1013,9 +1044,15 @@ snapshotResult.error ||
         </View>
       </>);
     }
+    const visibleSuppliers = suppliers.filter(supplier => {
+      if (!globalSearch.trim()) return true;
+      const q = globalSearch.toLowerCase();
+      const profile = supplierProfiles[supplier.name] || {};
+      return [supplier.name, supplier.location, profile.description, profile.phone].some(v => String(v || '').toLowerCase().includes(q));
+    });
     return (<>
       <Text style={styles.sectionTitle}>Suppliers</Text><Text style={styles.pageIntro}>Company information, contact details, websites and social media for the suppliers PriceWatch follows.</Text>
-      {suppliers.map(supplier => { const profile=supplierProfiles[supplier.name] || {}; const socialCount=profile.socials?.length || 0; return <TouchableOpacity key={supplier.id} activeOpacity={0.82} style={styles.supplierDirectoryCard} onPress={() => setSupplierDetailId(supplier.id)}><View style={styles.supplierDirectoryIcon}><Text style={styles.supplierDirectoryIconText}>{supplier.name.slice(0,1).toUpperCase()}</Text></View><View style={{flex:1}}><Text style={styles.productName}>{supplier.name}</Text><Text style={styles.unit}>{supplier.location || 'Howick area'}</Text><Text style={styles.supplierDirectoryMeta}>{profile.phone || 'Contact details'} · {socialCount} social link{socialCount === 1 ? '' : 's'}</Text></View><Text style={styles.historyArrow}>›</Text></TouchableOpacity>; })}
+      {visibleSuppliers.map(supplier => { const profile=supplierProfiles[supplier.name] || {}; const socialCount=profile.socials?.length || 0; const latestSupplierCheck=snapshots.filter(s => s.supplier_id === supplier.id).sort((a,b)=>new Date(b.checked_at)-new Date(a.checked_at))[0]; const age=latestSupplierCheck ? Math.floor((Date.now()-new Date(latestSupplierCheck.checked_at).getTime())/3600000) : null; const health=age == null ? 'NO DATA' : age <= 2 ? 'LIVE' : age <= 6 ? 'DELAYED' : 'STALE'; return <TouchableOpacity key={supplier.id} activeOpacity={0.82} style={styles.supplierDirectoryCard} onPress={() => setSupplierDetailId(supplier.id)}><View style={styles.supplierDirectoryIcon}><Text style={styles.supplierDirectoryIconText}>{supplier.name.slice(0,1).toUpperCase()}</Text></View><View style={{flex:1}}><Text style={styles.productName}>{supplier.name}</Text><Text style={styles.unit}>{supplier.location || 'Howick area'}</Text><Text style={styles.supplierDirectoryMeta}>{profile.phone || 'Contact details'} · {socialCount} social link{socialCount === 1 ? '' : 's'}</Text><Text style={[styles.supplierHealth, health === 'LIVE' ? styles.healthLive : health === 'DELAYED' ? styles.healthDelayed : styles.healthStale]}>{health}{age != null ? ` · checked ${age}h ago` : ''}</Text></View><Text style={styles.historyArrow}>›</Text></TouchableOpacity>; })}
     </>);
   };
 
@@ -1067,9 +1104,43 @@ snapshotResult.error ||
     </>
   );
 
-  const renderPromotions = () => (
+  const renderPromotions = () => {
+    const filteredPromotions = promotions.filter(promotion => {
+      const status = getPromotionStatus(promotion);
+      if (promotionFilter === 'active') return status?.key === 'valid';
+      if (promotionFilter === 'expiring') {
+        if (status?.key !== 'valid' || !promotion.valid_until) return false;
+        const today = new Date(new Date().toISOString().slice(0, 10));
+        const until = new Date(promotion.valid_until);
+        const days = Math.ceil((until - today) / 86400000);
+        return days >= 0 && days <= 3;
+      }
+      if (promotionFilter === 'expired') return status?.key === 'expired';
+      if (promotionFilter === 'unknown') return status?.key === 'unknown';
+      return true;
+    }).filter(promotion => {
+      if (!globalSearch.trim()) return true;
+      const q = globalSearch.toLowerCase();
+      const supplier = suppliers.find(s => s.id === promotion.supplier_id);
+      return [supplier?.name, promotion.title, promotion.text, promotion.ai_summary].some(v => String(v || '').toLowerCase().includes(q));
+    });
+
+    return (
     <>
       <Text style={styles.sectionTitle}>Promotions</Text>
+      <View style={styles.filterRow}>
+        {[
+          ['all', 'ALL'],
+          ['active', 'ACTIVE'],
+          ['expiring', 'EXPIRING'],
+          ['expired', 'EXPIRED'],
+          ['unknown', 'UNKNOWN'],
+        ].map(([key, label]) => (
+          <TouchableOpacity key={key} onPress={() => setPromotionFilter(key)} style={[styles.filterChip, promotionFilter === key && styles.filterChipActive]}>
+            <Text style={[styles.filterChipText, promotionFilter === key && styles.filterChipTextActive]}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <View style={styles.legendCard}>
         <Text style={styles.legendTitle}>Promotion price status</Text>
         <View style={styles.legendRow}><View style={[styles.legendDot, {backgroundColor: '#57d58a'}]} /><Text style={styles.legendText}>GREEN · Promotion is currently within its stated validity period</Text></View>
@@ -1081,7 +1152,12 @@ snapshotResult.error ||
           <Text style={styles.emptyTitle}>No promotions detected yet</Text>
           <Text style={styles.emptyText}>Promotion records will appear here when social monitoring starts detecting relevant supplier posts.</Text>
         </View>
-      ) : promotions.map(promotion => (
+      ) : filteredPromotions.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No matching promotions</Text>
+          <Text style={styles.emptyText}>No promotions match the selected filter or search.</Text>
+        </View>
+      ) : filteredPromotions.map(promotion => (
         <View key={promotion.id} style={styles.simpleCard}>
           <Text style={styles.productName}>{suppliers.find(s => s.id === promotion.supplier_id)?.name || 'Supplier promotion'}</Text>
           <Text style={styles.unit}>{promotion.platform || 'Source'} · {timeLabel(promotion.posted_at || promotion.detected_at)}</Text>
@@ -1115,7 +1191,8 @@ snapshotResult.error ||
         </View>
       ))}
     </>
-  );
+    );
+  };
 
   const tabTitle = {dashboard: 'Dashboard', compare: 'Compare', history: 'History', suppliers: 'Suppliers', manual: 'Manual', promotions: 'Promotions', alerts: 'Alerts'}[tab];
 
@@ -1148,6 +1225,19 @@ snapshotResult.error ||
               <Text style={styles.liveText}>LIVE</Text>
             </View>
           </View>
+        </View>
+
+        <View style={styles.globalSearchWrap}>
+          <TextInput
+            value={globalSearch}
+            onChangeText={setGlobalSearch}
+            placeholder="Search products, suppliers and promotions…"
+            placeholderTextColor="#707780"
+            style={styles.globalSearchInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {globalSearch ? <TouchableOpacity onPress={() => setGlobalSearch('')}><Text style={styles.globalSearchClear}>×</Text></TouchableOpacity> : null}
         </View>
 
         {loading ? (
@@ -1215,6 +1305,28 @@ function NavButton({label, active, onPress}) {
 }
 
 const styles = StyleSheet.create({
+  intelligenceCard: {backgroundColor:'#12161b', borderRadius:18, padding:15, marginBottom:18, borderWidth:1, borderColor:'#242a31'},
+  intelligenceHeader: {flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:13},
+  intelligenceEyebrow: {fontSize:10, fontWeight:'900', color:'#F5BE28', letterSpacing:1},
+  intelligenceTitle: {fontSize:19, fontWeight:'900', color:'#fff', marginTop:3},
+  intelligenceTime: {fontSize:10, fontWeight:'900', color:'#57d58a'},
+  intelligenceGrid: {flexDirection:'row', gap:8},
+  intelligenceMetric: {flex:1, backgroundColor:'#0c0f13', borderRadius:12, padding:10},
+  intelligenceValue: {fontSize:22, fontWeight:'900', color:'#fff'},
+  intelligenceLabel: {fontSize:8, fontWeight:'800', color:'#8b929b', marginTop:4},
+  filterRow: {flexDirection:'row', flexWrap:'wrap', gap:7, marginBottom:12},
+  filterChip: {paddingHorizontal:11, paddingVertical:7, borderRadius:14, backgroundColor:'#181d23', borderWidth:1, borderColor:'#272d34'},
+  filterChipActive: {backgroundColor:'#332c18', borderColor:'#F5BE28'},
+  filterChipText: {fontSize:9, fontWeight:'900', color:'#858c95'},
+  filterChipTextActive: {color:'#F5BE28'},
+  globalSearchWrap: {marginHorizontal:14, marginTop:10, marginBottom:2, height:42, borderRadius:13, backgroundColor:'#12161b', borderWidth:1, borderColor:'#252b32', flexDirection:'row', alignItems:'center', paddingHorizontal:12},
+  globalSearchInput: {flex:1, color:'#fff', fontSize:13, paddingVertical:0},
+  globalSearchClear: {color:'#9ba2aa', fontSize:23, lineHeight:25, paddingLeft:8},
+  supplierHealth: {fontSize:8, fontWeight:'900', marginTop:5},
+  healthLive: {color:'#57d58a'},
+  healthDelayed: {color:'#F5BE28'},
+  healthStale: {color:'#ff7777'},
+
   safe: {flex: 1, backgroundColor: '#08090d'},
   container: {flex: 1, backgroundColor: '#08090d'},
   topBar: {paddingHorizontal: 16, paddingTop: 12, paddingBottom: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#171b21'},
