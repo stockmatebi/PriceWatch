@@ -176,7 +176,7 @@ function PriceWatchApp() {
           .limit(50),
         supabase
           .from('pw_alerts')
-          .select('id,supplier_id,product_id,old_price,new_price,percentage_change,source_url,alert_type,detected_at')
+          .select('id,supplier_id,product_id,old_price,new_price,percentage_change,source_url,alert_type,detected_at,notification_status')
           .in('alert_type', ['price_change', 'promotion_price_change'])
           .order('detected_at', {ascending: false})
           .limit(30),
@@ -317,6 +317,17 @@ snapshotResult.error ||
 
   const openUrl = url => {
     if (url) Linking.openURL(url).catch(() => {});
+  };
+
+  const unreadAlertCount = alerts.filter(alert => String(alert.notification_status || '').toLowerCase() !== 'read').length;
+
+  const openAlerts = async () => {
+    setTab('alerts');
+    const unreadIds = alerts.filter(alert => String(alert.notification_status || '').toLowerCase() !== 'read').map(alert => alert.id).filter(Boolean);
+    if (!unreadIds.length) return;
+    setAlerts(current => current.map(alert => unreadIds.includes(alert.id) ? {...alert, notification_status: 'read'} : alert));
+    const {error: markReadError} = await supabase.from('pw_alerts').update({notification_status: 'read'}).in('id', unreadIds);
+    if (markReadError) setAlerts(current => current.map(alert => unreadIds.includes(alert.id) ? {...alert, notification_status: 'pending'} : alert));
   };
 
   const promotionForRow = row => {
@@ -1086,12 +1097,12 @@ snapshotResult.error ||
             </View>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.alertButton} onPress={() => setTab('alerts')} accessibilityLabel="Open alerts">
+            <TouchableOpacity style={styles.alertButton} onPress={openAlerts} accessibilityLabel="Open alerts">
               <View style={styles.bellBody} />
               <View style={styles.bellClapper} />
-              {alerts.length > 0 ? (
+              {unreadAlertCount > 0 ? (
                 <View style={styles.alertBadge}>
-                  <Text style={styles.alertBadgeText}>{alerts.length > 9 ? '9+' : alerts.length}</Text>
+                  <Text style={styles.alertBadgeText}>{unreadAlertCount > 9 ? '9+' : unreadAlertCount}</Text>
                 </View>
               ) : null}
             </TouchableOpacity>
