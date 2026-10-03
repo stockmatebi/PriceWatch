@@ -67,6 +67,8 @@ object PriceWatchNotifications {
             val lastPromo = prefs.getString(LAST_PROMO, null)
 
             if (lastAlert == null) {
+                // Do not silently discard existing alerts on first launch.
+                alerts.asReversed().forEach { notifyPriceChange(context, it) }
                 alerts.maxTimestamp()?.let { prefs.edit().putString(LAST_ALERT, it).apply() }
             } else {
                 alerts.newerThan(lastAlert).asReversed().forEach { notifyPriceChange(context, it) }
@@ -74,6 +76,8 @@ object PriceWatchNotifications {
             }
 
             if (lastPromo == null) {
+                // Also surface promotions that were detected before this install.
+                promos.asReversed().forEach { notifyPromotion(context, it) }
                 promos.maxTimestamp()?.let { prefs.edit().putString(LAST_PROMO, it).apply() }
             } else {
                 promos.newerThan(lastPromo).asReversed().forEach { notifyPromotion(context, it) }
