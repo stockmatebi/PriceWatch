@@ -15,6 +15,7 @@ import {
 import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {supabase} from './lib/supabase';
 import npcBlueImage from './assets/npcBlue';
+import npcBlackImage from './assets/npcBlack';
 import m140m150Image from './assets/m140m150';
 import doubleRomanImage from './assets/doubleRoman';
 import timber50x76Image from './assets/timber50x76';
@@ -34,7 +35,8 @@ const supplierProfiles = {
 const productImageResource = (product, promotionRows = []) => {
   const name = String(product?.name || '').toLowerCase();
   if (name.includes('npc original blue')) return npcBlueImage;
-  if (name.includes('npc original black')) return 'data:image/jpeg;base64,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';
+  if (name.includes('npc original black')) return npcBlackImage;
+
   if (name.includes('double roman')) return doubleRomanImage;
   if (name.includes('m140') || name.includes('m150')) return m140m150Image;
   if (name.includes('50x76') || name.includes('50 x 76')) return timber50x76Image;
@@ -44,6 +46,8 @@ const productImageResource = (product, promotionRows = []) => {
   const match = (promotionRows || []).find(p => p?.image_url && [p.title,p.text,p.ai_summary].filter(Boolean).join(' ').toLowerCase().replace(/[^a-z0-9]+/g,' ').split(' ').some(word => word.length > 3 && normalized.includes(word)));
   return match?.image_url || null;
 };
+
+const isDnuRow = row => Boolean(row?.dnu) || row?.source_type === 'dnu';
 
 const timeLabel = value => {
   if (!value) return 'Not checked';
@@ -396,7 +400,7 @@ snapshotResult.error ||
   const priceStatusForRow = row => getPromotionStatus(promotionForRow(row));
 
   const comparePriceStyle = row => {
-    if (row?.source_type === 'dnu') return {color: '#F5BE28', label: 'DNU', background: '#332c18'};
+    if (isDnuRow(row)) return {color: '#F5BE28', label: 'DNU', background: '#332c18'};
     if (!row || row.price == null) return {color: '#666f79', label: 'NO PRICE', background: '#181d24'};
     if (row.source_type === 'manual') return {color: '#27D9FF', label: 'MANUAL', background: '#102f38'};
     const promo = promotionForRow(row);
@@ -492,6 +496,18 @@ snapshotResult.error ||
         data,
       ]);
       setManualDraft(current => ({...current, [productId]: ''}));
+      setManualHistory(current => [
+        {
+          id: `local-dnu-${Date.now()}`,
+          supplier_id: manualSupplierId,
+          product_id: productId,
+          price: null,
+          notes: data.notes,
+          recorded_at: data.updated_at,
+          source_type: 'dnu',
+        },
+        ...current.filter(row => !(row.supplier_id === manualSupplierId && row.product_id === productId)),
+      ]);
     }
     setManualSaving(false);
   };
@@ -699,12 +715,14 @@ snapshotResult.error ||
                 const row = currentPriceRow(supplier.id, product.id);
                 const pct = priceChange(supplier.id, product.id);
                 const isManual = row?.source_type === 'manual';
+                const isDnu = isDnuRow(row);
                 return (
                   <View key={supplier.id} style={styles.dashboardSupplierCell}>
                     <Text style={styles.dashboardSupplierName} numberOfLines={2}>{supplier.name}</Text>
-                    <Text style={[styles.dashboardSupplierPrice, isManual && styles.manualPrice]}>{money(row?.price)}</Text>
-                    {isManual ? <Text style={styles.dashboardManualBadge}>MANUAL</Text> : null}
-                    {!isManual && row?.price != null ? renderChange(pct, true) : null}
+                    {isDnu ? <Text style={styles.dashboardDnuBadge}>DNU</Text> : <Text style={[styles.dashboardSupplierPrice, isManual && styles.manualPrice]}>{money(row?.price)}</Text>}
+                    {isDnu ? <Text style={styles.dashboardDnuSubtext}>SUPPLIER DOES NOT CARRY</Text> : null}
+                    {!isDnu && isManual ? <Text style={styles.dashboardManualBadge}>MANUAL</Text> : null}
+                    {!isDnu && !isManual && row?.price != null ? renderChange(pct, true) : null}
                   </View>
                 );
               })}
@@ -742,7 +760,7 @@ snapshotResult.error ||
     if (selectedProduct) {
       const comparisonRows = suppliers.map(supplier => {
         const row = currentPriceRow(supplier.id, selectedProduct.id);
-        const style = comparePriceStyle(row);
+        const style = isDnuRow(row) ? {color: '#F5BE28', label: 'DNU', background: '#332c18'} : comparePriceStyle(row);
         return {supplier, row, style};
       });
 
@@ -1068,9 +1086,9 @@ snapshotResult.error ||
                 <TouchableOpacity key={supplier.id} style={styles.historyAllStoreRow} onPress={() => setHistorySupplierId(supplier.id)}>
                   <View style={{flex: 1}}>
                     <Text style={styles.supplierName}>{supplier.name}</Text>
-                    <Text style={styles.checked}>{row?.source_type === 'dnu' ? 'DNU · SUPPLIER DOES NOT CARRY THIS LINE' : row?.source_type === 'manual' ? 'MANUAL INPUT' : row?.price != null ? 'MONITORED PRICE' : 'NO PRICE RECORDED'}</Text>
+                    <Text style={styles.checked}>{isDnuRow(row) ? 'DNU · SUPPLIER DOES NOT CARRY THIS LINE' : row?.source_type === 'manual' ? 'MANUAL INPUT' : row?.price != null ? 'MONITORED PRICE' : 'NO PRICE RECORDED'}</Text>
                   </View>
-                  {row?.source_type === 'dnu' ? <Text style={styles.historyDnuBadge}>DNU</Text> : <Text style={[styles.historyAllStorePrice, row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text>}
+                  {isDnuRow(row) ? <Text style={styles.historyDnuBadge}>DNU</Text> : <Text style={[styles.historyAllStorePrice, row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text>}
                   <Text style={styles.historyArrow}>›</Text>
                 </TouchableOpacity>
               ))}
@@ -1109,7 +1127,7 @@ snapshotResult.error ||
         </View>
         <Text style={styles.sectionTitle}>PriceWatch</Text>
         <View style={styles.supplierInfoCard}><Text style={styles.supplierInfoHeading}>MONITORED PRODUCTS</Text><Text style={styles.supplierInfoText}>Current prices and manual fallbacks for this supplier.</Text>
-          {supplierProducts.map(({product,row}) => <View key={product.id} style={styles.supplierProductRow}><View style={{flex:1,paddingRight:10}}><Text style={styles.supplierProductName}>{product.name}</Text><Text style={styles.checked}>{row?.source_type === 'dnu' ? 'DNU · SUPPLIER DOES NOT CARRY THIS LINE' : row?.source_type === 'manual' ? 'MANUAL INPUT' : row?.price != null ? 'MONITORED PRICE' : 'NO PRICE RECORDED'}</Text></View>{row?.source_type === 'dnu' ? <Text style={styles.supplierDnuBadge}>DNU</Text> : <Text style={[styles.supplierProductPrice,row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text>}</View>)}
+          {supplierProducts.map(({product,row}) => <View key={product.id} style={styles.supplierProductRow}><View style={{flex:1,paddingRight:10}}><Text style={styles.supplierProductName}>{product.name}</Text><Text style={styles.checked}>{isDnuRow(row) ? 'DNU · SUPPLIER DOES NOT CARRY THIS LINE' : row?.source_type === 'manual' ? 'MANUAL INPUT' : row?.price != null ? 'MONITORED PRICE' : 'NO PRICE RECORDED'}</Text></View>{isDnuRow(row) ? <Text style={styles.supplierDnuBadge}>DNU</Text> : <Text style={[styles.supplierProductPrice,row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text>}</View>)}
         </View>
       </>);
     }
@@ -1507,6 +1525,7 @@ const styles = StyleSheet.create({
   dashboardSupplierPrice: {fontSize: 16, fontWeight: '900', color: '#ff3340', marginTop: 2},
   dashboardManualBadge: {fontSize: 7, fontWeight: '900', color: '#4FC3F7', marginTop: 1},
   dashboardDnuBadge: {fontSize: 16, fontWeight: '900', color: '#F5BE28', marginTop: 3},
+  dashboardDnuSubtext: {fontSize: 7, fontWeight: '900', color: '#F5BE28', marginTop: 1},
   historyDnuBadge: {fontSize: 14, fontWeight: '900', color: '#F5BE28', marginHorizontal: 6},
   supplierDnuBadge: {fontSize: 14, fontWeight: '900', color: '#F5BE28', paddingTop: 4},
   historyProductCard: {backgroundColor: '#111419', borderRadius: 16, borderWidth: 1, borderColor: '#1f242c', padding: 13, marginBottom: 10, flexDirection: 'row', alignItems: 'center'},
