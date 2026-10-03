@@ -621,6 +621,16 @@ snapshotResult.error ||
       supplier: suppliers.find(supplier => supplier.id === alert.supplier_id),
     })).filter(item => item.product && item.supplier);
 
+    const orderedDashboardProducts = [...products].sort((a, b) => {
+      const rank = product => {
+        const name = String(product?.name || '').toLowerCase();
+        if (name.includes('cement')) return 0;
+        if (name.includes('timber')) return 2;
+        return 1;
+      };
+      return rank(a) - rank(b);
+    });
+
     return (
       <>
         <View style={styles.hero}>
@@ -672,7 +682,7 @@ snapshotResult.error ||
         <Text style={styles.sectionTitle}>All supplier prices</Text>
         <Text style={styles.pageIntro}>One product card shows the current price from every configured supplier.</Text>
 
-        {products.map(product => (
+        {orderedDashboardProducts.map(product => (
           <View key={product.id} style={styles.dashboardProductCard}>
             <View style={styles.dashboardProductHeader}>
               <View style={{flex: 1}}>
@@ -1488,13 +1498,13 @@ const styles = StyleSheet.create({
   monitorWarn: {fontSize: 9, fontWeight: '900', color: '#F5BE28', textAlign: 'right'},
   monitorError: {fontSize: 9, fontWeight: '900', color: '#ff7777', textAlign: 'right'},
   historyRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#2a2f36', marginTop: 7},
-  dashboardProductCard: {backgroundColor: '#111419', borderRadius: 16, padding: 14, marginBottom: 11, borderWidth: 1, borderColor: '#1f242c'},
-  dashboardProductHeader: {flexDirection: 'row', alignItems: 'center', marginBottom: 7},
-  dashboardHistoryLink: {fontSize: 9, fontWeight: '900', color: '#F5BE28'},
+  dashboardProductCard: {backgroundColor: '#111419', borderRadius: 14, padding: 10, marginBottom: 7, borderWidth: 1, borderColor: '#1f242c'},
+  dashboardProductHeader: {flexDirection: 'row', alignItems: 'center', marginBottom: 4},
+  dashboardHistoryLink: {fontSize: 8, fontWeight: '900', color: '#F5BE28'},
   dashboardPriceGrid: {flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: '#2a2f36'},
-  dashboardSupplierCell: {width: '50%', minHeight: 74, paddingVertical: 10, paddingRight: 10, borderBottomWidth: 1, borderBottomColor: '#20252b'},
-  dashboardSupplierName: {fontSize: 10, lineHeight: 13, color: '#aeb5bd', fontWeight: '800'},
-  dashboardSupplierPrice: {fontSize: 19, fontWeight: '900', color: '#ff3340', marginTop: 4},
+  dashboardSupplierCell: {width: '50%', minHeight: 55, paddingVertical: 7, paddingRight: 7, borderBottomWidth: 1, borderBottomColor: '#20252b'},
+  dashboardSupplierName: {fontSize: 9, lineHeight: 11, color: '#aeb5bd', fontWeight: '800'},
+  dashboardSupplierPrice: {fontSize: 16, fontWeight: '900', color: '#ff3340', marginTop: 2},
   dashboardManualBadge: {fontSize: 7, fontWeight: '900', color: '#4FC3F7', marginTop: 1},
   historyProductCard: {backgroundColor: '#111419', borderRadius: 16, borderWidth: 1, borderColor: '#1f242c', padding: 13, marginBottom: 10, flexDirection: 'row', alignItems: 'center'},
   historyProductImageWrap: {width: 78, height: 78, marginRight: 12, alignItems: 'center', justifyContent: 'center'},
