@@ -70,7 +70,7 @@ object PriceWatchNotifications {
 
             if (lastAlert == null) {
                 // Do not silently discard existing alerts on first launch.
-                alerts.asReversed().forEach { notifyPriceChange(context, it) }
+                alerts.reversedItems().forEach { notifyPriceChange(context, it) }
                 alerts.maxTimestamp()?.let { prefs.edit().putString(LAST_ALERT, it).apply() }
             } else {
                 alerts.newerThan(lastAlert).asReversed().forEach { notifyPriceChange(context, it) }
@@ -79,7 +79,7 @@ object PriceWatchNotifications {
 
             if (lastPromo == null) {
                 // Also surface promotions that were detected before this install.
-                promos.asReversed().forEach { notifyPromotion(context, it) }
+                promos.reversedItems().forEach { notifyPromotion(context, it) }
                 promos.maxTimestamp()?.let { prefs.edit().putString(LAST_PROMO, it).apply() }
             } else {
                 promos.newerThan(lastPromo).asReversed().forEach { notifyPromotion(context, it) }
@@ -109,6 +109,15 @@ object PriceWatchNotifications {
             if (value.isNotEmpty() && (max == null || value > max!!)) max = value
         }
         return max
+    }
+
+    private fun JSONArray.reversedItems(): List<JSONObject> {
+        val out = mutableListOf<JSONObject>()
+        for (i in length() - 1 downTo 0) {
+            val obj = optJSONObject(i) ?: continue
+            out.add(obj)
+        }
+        return out
     }
 
     private fun JSONArray.newerThan(timestamp: String): List<JSONObject> {
