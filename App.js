@@ -200,7 +200,7 @@ function PriceWatchApp() {
           .limit(500),
         supabase
           .from('pw_manual_prices')
-          .select('id,supplier_id,product_id,price,notes,updated_at')
+          .select('id,supplier_id,product_id,price,notes,dnu,updated_at')
           .order('updated_at', {ascending: false}),
         supabase
           .from('pw_manual_price_history')
@@ -339,6 +339,7 @@ snapshotResult.error ||
       return null;
     }
     if (manual) {
+      if (manual.dnu) return {...manual, price: null, source_type: 'dnu', checked_at: manual.updated_at};
       return {...manual, source_type: 'manual', checked_at: manual.updated_at};
     }
     return latest.get(`${supplierId}|${productId}`);
@@ -415,12 +416,13 @@ snapshotResult.error ||
           supplier_id: manualSupplierId,
           product_id: productId,
           price: Number(price.toFixed(2)),
+          dnu: false,
           notes: 'Manually entered in PriceWatch',
           updated_at: new Date().toISOString(),
         },
         {onConflict: 'supplier_id,product_id'},
       )
-      .select('id,supplier_id,product_id,price,notes,updated_at')
+      .select('id,supplier_id,product_id,price,notes,dnu,updated_at')
       .single();
 
     if (saveError) {
@@ -443,6 +445,39 @@ snapshotResult.error ||
         ...current.filter(row => !(row.supplier_id === manualSupplierId && row.product_id === productId && Number(row.price) === Number(data.price) && row.recorded_at === data.updated_at)),
       ]);
       setManualDraft(current => ({...current, [productId]: String(Number(data.price).toFixed(2))}));
+    }
+    setManualSaving(false);
+  };
+
+  const setManualDnu = async productId => {
+    if (!manualSupplierId) return;
+    setManualSaving(true);
+    setError('');
+    const existing = manualByKey.get(`${manualSupplierId}|${productId}`);
+    const {data, error: dnuError} = await supabase
+      .from('pw_manual_prices')
+      .upsert(
+        {
+          supplier_id: manualSupplierId,
+          product_id: productId,
+          price: existing?.price != null ? Number(existing.price) : 0,
+          dnu: true,
+          notes: 'DNU - supplier does not carry this line',
+          updated_at: new Date().toISOString(),
+        },
+        {onConflict: 'supplier_id,product_id'},
+      )
+      .select('id,supplier_id,product_id,price,notes,dnu,updated_at')
+      .single();
+
+    if (dnuError) {
+      setError(dnuError.message || 'Could not mark this line DNU.');
+    } else {
+      setManualPrices(current => [
+        ...current.filter(row => !(row.supplier_id === manualSupplierId && row.product_id === productId)),
+        data,
+      ]);
+      setManualDraft(current => ({...current, [productId]: ''}));
     }
     setManualSaving(false);
   };
@@ -500,30 +535,38 @@ snapshotResult.error ||
 
         <View style={styles.productCard}>
           <Text style={styles.productName}>{selectedSupplier?.name || 'Select a supplier'}</Text>
-          <Text style={styles.unit}>Enter the four monitored lines below.</Text>
+          <Text style={styles.unit}>Enter a fallback price, or mark DNU when this supplier does not carry the line.</Text>
 
           {products.map(product => {
             const manual = manualByKey.get(`${manualSupplierId}|${product.id}`);
-            const draftValue = manualDraft[product.id] ?? (manual ? String(Number(manual.price).toFixed(2)) : '');
+            const isDnu = Boolean(manual?.dnu);
+            const draftValue = manualDraft[product.id] ?? (manual && !isDnu ? String(Number(manual.price).toFixed(2)) : '');
             return (
               <View key={product.id} style={styles.manualRow}>
                 <View style={{flex: 1, paddingRight: 10}}>
                   <Text style={styles.supplierName}>{product.name}</Text>
-                  <Text style={styles.checked}>{manual ? `MANUAL · Updated ${timeLabel(manual.updated_at)}` : 'No manual price entered'}</Text>
+                  <Text style={styles.checked}>{isDnu ? `DNU · Updated ${timeLabel(manual.updated_at)}` : manual ? `MANUAL · Updated ${timeLabel(manual.updated_at)}` : 'No manual price entered'}</Text>
                 </View>
                 <TextInput
                   value={draftValue}
                   onChangeText={value => setManualDraft(current => ({...current, [product.id]: value}))}
-                  placeholder="0.00"
-                  placeholderTextColor="#68717b"
+                  placeholder={isDnu ? 'DNU' : '0.00'}
+                  placeholderTextColor={isDnu ? '#F5BE28' : '#68717b'}
+                  editable={!isDnu}
                   keyboardType="decimal-pad"
-                  style={styles.manualInput}
+                  style={[styles.manualInput, isDnu && {borderColor: '#80641a', color: '#F5BE28'}]}
                 />
                 <TouchableOpacity
                   style={styles.manualSaveButton}
                   disabled={manualSaving || !manualSupplierId}
                   onPress={() => saveManualPrice(product.id)}>
                   <Text style={styles.manualSaveText}>{manualSaving ? '…' : 'Save'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.manualDnuButton, isDnu && styles.manualDnuButtonActive]}
+                  disabled={manualSaving || !manualSupplierId}
+                  onPress={() => setManualDnu(product.id)}>
+                  <Text style={[styles.manualDnuText, isDnu && styles.manualDnuTextActive]}>DNU</Text>
                 </TouchableOpacity>
                 {manual ? (
                   <TouchableOpacity style={styles.manualClearButton} disabled={manualSaving} onPress={() => clearManualPrice(product.id)}>
@@ -1512,6 +1555,10 @@ const styles = StyleSheet.create({
   manualInput: {width: 72, height: 40, borderRadius: 8, borderWidth: 1, borderColor: '#3b454f', backgroundColor: '#12171b', color: '#4FC3F7', fontSize: 14, fontWeight: '800', textAlign: 'right', paddingHorizontal: 8},
   manualSaveButton: {marginLeft: 6, backgroundColor: '#4FC3F7', borderRadius: 8, paddingHorizontal: 9, paddingVertical: 11},
   manualSaveText: {fontSize: 10, fontWeight: '900', color: '#10202a'},
+  manualDnuButton: {borderWidth: 1, borderColor: '#80641a', borderRadius: 9, paddingHorizontal: 8, paddingVertical: 9, marginLeft: 4, backgroundColor: '#211d10'},
+  manualDnuButtonActive: {backgroundColor: '#3a3015', borderColor: '#F5BE28'},
+  manualDnuText: {color: '#F5BE28', fontWeight: '800', fontSize: 10},
+  manualDnuTextActive: {color: '#fff'},
   manualClearButton: {marginLeft: 4, width: 27, height: 40, borderRadius: 8, backgroundColor: '#2a2020', alignItems: 'center', justifyContent: 'center'},
   manualClearText: {fontSize: 20, color: '#ff7777', lineHeight: 20},
   manualPrice: {color: '#4FC3F7'},
