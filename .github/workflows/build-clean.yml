@@ -1,8 +1,10 @@
 name: Build Clean Price Watch APK
+# Force fresh APK rebuild for the notification fixes.
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,158 +33,36 @@ jobs:
           s=p.read_text()
           old='getMainComponentName(): String = "PriceWatchNative"'
           new='getMainComponentName(): String = "PriceWatch"'
-          if old not in s:
-              raise SystemExit('Expected React Native main component name was not found')
+          if old not in s: raise SystemExit('Expected React Native main component name was not found')
           p.write_text(s.replace(old,new))
           PY
           python3 - <<'PY'
           from pathlib import Path
           import re
-
-          manifest = Path('android/app/src/main/AndroidManifest.xml')
-          s = manifest.read_text()
-          s = re.sub(r'android:label="[^"]+"', 'android:label="PriceWatch"', s, count=1)
-          s = re.sub(r'android:icon="@mipmap/[^"]+"', 'android:icon="@mipmap/ic_launcher"', s, count=1)
-          s = re.sub(r'android:roundIcon="@mipmap/[^"]+"', 'android:roundIcon="@mipmap/ic_launcher_round"', s, count=1)
+          manifest=Path('android/app/src/main/AndroidManifest.xml')
+          s=manifest.read_text()
+          s=re.sub(r'android:label="[^"]+"','android:label="PriceWatch"',s,count=1)
+          s=re.sub(r'android:icon="@mipmap/[^"]+"','android:icon="@mipmap/ic_launcher"',s,count=1)
+          s=re.sub(r'android:roundIcon="@mipmap/[^"]+"','android:roundIcon="@mipmap/ic_launcher_round"',s,count=1)
           manifest.write_text(s)
-
-          strings = Path('android/app/src/main/res/values/strings.xml')
+          strings=Path('android/app/src/main/res/values/strings.xml')
           if strings.exists():
-              ss = strings.read_text()
-              ss = re.sub(r'<string name="app_name">.*?</string>', '<string name="app_name">PriceWatch</string>', ss)
-              strings.write_text(ss)
-
-          res = Path('android/app/src/main/res')
-          (res / 'mipmap-anydpi-v26').mkdir(parents=True, exist_ok=True)
-          (res / 'drawable').mkdir(parents=True, exist_ok=True)
-          (res / 'values').mkdir(parents=True, exist_ok=True)
+            ss=strings.read_text(); ss=re.sub(r'<string name="app_name">.*?</string>','<string name="app_name">PriceWatch</string>',ss); strings.write_text(ss)
           PY
           python3 -m pip install --quiet pillow
           python3 - <<'PY'
           from pathlib import Path
-          from PIL import Image, ImageDraw, ImageFont
-
-          res = Path('android/app/src/main/res')
-          drawable = res / 'drawable-nodpi'
-          drawable.mkdir(parents=True, exist_ok=True)
-          (res / 'drawable').mkdir(parents=True, exist_ok=True)
-          (res / 'mipmap-anydpi-v26').mkdir(parents=True, exist_ok=True)
-          (res / 'values').mkdir(parents=True, exist_ok=True)
-
-          def rounded_rect(draw, box, radius, fill=None, outline=None, width=1):
-              draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
-
-          def make_mark(size=432, scale=1.0):
-              im = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-              d = ImageDraw.Draw(im)
-              s = size / 108.0 * scale
-              ox = oy = (size - 108*s) / 2
-              def P(x, y): return (ox + x*s, oy + y*s)
-              rounded_rect(d, [*P(10,10), *P(98,98)], 18*s, fill=(8,10,14,255), outline=(255,43,61,255), width=max(2,int(4*s)))
-              rounded_rect(d, [*P(13,13), *P(95,95)], 15*s, outline=(115,18,28,255), width=max(1,int(1.2*s)))
-              pts = [P(20,76),P(37,57),P(49,67),P(69,45),P(88,24)]
-              d.line(pts, fill=(255,43,61,255), width=max(2,int(5*s)), joint='curve')
-              for x,y in pts[:-1]:
-                  r=2.4*s
-                  d.ellipse([x-r,y-r,x+r,y+r], fill=(255,43,61,255))
-              d.polygon([P(78,24),P(92,20),P(88,36),P(86,29),P(80,30)], fill=(255,43,61,255))
-              d.rounded_rectangle([*P(22,24),*P(42,41)], radius=3*s, fill=(246,248,250,255))
-              d.polygon([P(25,38),P(36,43),P(42,36),P(32,31)], fill=(246,248,250,255))
-              d.ellipse([*P(27,27),*P(33,33)], fill=(8,10,14,255))
-              d.line([P(32,37),P(37,32)], fill=(255,43,61,255), width=max(1,int(2.5*s)))
-              d.rounded_rectangle([*P(28,69),*P(42,81)], radius=3*s, fill=(246,248,250,255))
-              d.polygon([P(29,79),P(39,84),P(43,79),P(35,75)], fill=(246,248,250,255))
-              d.ellipse([*P(31,71),*P(35,75)], fill=(8,10,14,255))
-              d.rectangle([*P(34,76),*P(38,79)], fill=(255,43,61,255))
-              d.rounded_rectangle([*P(57,64),*P(87,89)], radius=8*s, fill=(246,248,250,255), outline=(255,43,61,255), width=max(1,int(2.3*s)))
-              font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', max(10,int(13*s)))
-              bbox=d.textbbox((0,0),'PW',font=font)
-              tw,th=bbox[2]-bbox[0],bbox[3]-bbox[1]
-              d.text((P(72,76)[0]-tw/2,P(72,76)[1]-th/2-1*s),'PW',font=font,fill=(255,43,61,255))
-              return im
-
-          make_mark(432, 1.0).save(drawable / 'pricewatch_mark.png', 'PNG', optimize=True)
-          make_mark(432, 0.61).save(drawable / 'pricewatch_launcher_foreground.png', 'PNG', optimize=True)
-
-          (res / 'mipmap-anydpi-v26/ic_launcher.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@color/pricewatch_launcher_background" />
-              <foreground android:drawable="@drawable/pricewatch_launcher_foreground" />
-              <monochrome android:drawable="@drawable/pricewatch_launcher_foreground" />
-          </adaptive-icon>''')
-
-          (res / 'mipmap-anydpi-v26/ic_launcher_round.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
-          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-              <background android:drawable="@color/pricewatch_launcher_background" />
-              <foreground android:drawable="@drawable/pricewatch_launcher_foreground" />
-              <monochrome android:drawable="@drawable/pricewatch_launcher_foreground" />
-          </adaptive-icon>''')
-
-          (res / 'values/pricewatch_colors.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <color name="pricewatch_launcher_background">#08090D</color>
-          </resources>''')
-          PY
-          python3 -m pip install --quiet pillow
-          python3 - <<'PY'
-          from pathlib import Path
-          from urllib.request import Request, urlopen
-          from PIL import Image
-          from collections import deque
-          import io, math
-
-          urls = {
-              'pw_npc_blue': 'https://res.cloudinary.com/agrimark/image/upload/q_auto/f_auto/c_pad%2Ch_570%2Cw_570/v1/uploads/assets/NPC-32-5-00ae90.png',
-              'pw_double_roman': 'https://www.cashbuild.co.za/32338-small_default/double-roman-roof-tile.jpg',
-              'pw_m150': 'https://killarneybrick.co.za/wp-content/uploads/2019/04/m150.jpg',
-          }
-
-          out = Path('android/app/src/main/res/drawable-nodpi')
-          out.mkdir(parents=True, exist_ok=True)
-
-          def remove_edge_background(im, threshold=34):
-              im = im.convert('RGBA')
-              px = im.load()
-              w, h = im.size
-              bg = px[0, 0][:3]
-              seen = bytearray(w * h)
-              q = deque([(0, 0)])
-              seen[0] = 1
-              def close(c):
-                  return math.sqrt(sum((int(c[i]) - int(bg[i])) ** 2 for i in range(3))) <= threshold
-              while q:
-                  x, y = q.popleft()
-                  px[x, y] = (px[x, y][0], px[x, y][1], px[x, y][2], 0)
-                  for nx, ny in ((x-1,y),(x+1,y),(x,y-1),(x,y+1)):
-                      if 0 <= nx < w and 0 <= ny < h:
-                          idx = ny*w + nx
-                          if not seen[idx] and close(px[nx,ny]):
-                              seen[idx] = 1
-                              q.append((nx,ny))
-              return im
-
-          for name, url in urls.items():
-              req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-              with urlopen(req, timeout=60) as response:
-                  data = response.read()
-              im = Image.open(io.BytesIO(data))
-              im.thumbnail((700, 700), Image.Resampling.LANCZOS)
-              im = remove_edge_background(im)
-              im.save(out / f'{name}.png', 'PNG', optimize=True)
-              print(f'Saved {name}.png: {im.size}')
+          from PIL import Image,ImageDraw
+          res=Path('android/app/src/main/res'); drawable=res/'drawable-nodpi'; drawable.mkdir(parents=True,exist_ok=True); (res/'mipmap-anydpi-v26').mkdir(parents=True,exist_ok=True); (res/'values').mkdir(parents=True,exist_ok=True)
+          im=Image.new('RGBA',(432,432),(8,10,14,255)); d=ImageDraw.Draw(im); d.rounded_rectangle((40,40,392,392),radius=72,fill=(8,10,14,255),outline=(255,43,61,255),width=12); d.line([(80,304),(148,236),(196,272),(276,192),(352,112)],fill=(255,43,61,255),width=20,joint='curve'); im.save(drawable/'pricewatch_mark.png','PNG',optimize=True); im.resize((264,264),Image.Resampling.LANCZOS).save(drawable/'pricewatch_launcher_foreground.png','PNG',optimize=True)
+          (res/'mipmap-anydpi-v26/ic_launcher.xml').write_text('''<?xml version="1.0" encoding="utf-8"?><adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/pricewatch_launcher_background"/><foreground android:drawable="@drawable/pricewatch_launcher_foreground"/></adaptive-icon>''')
+          (res/'mipmap-anydpi-v26/ic_launcher_round.xml').write_text('''<?xml version="1.0" encoding="utf-8"?><adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/pricewatch_launcher_background"/><foreground android:drawable="@drawable/pricewatch_launcher_foreground"/></adaptive-icon>''')
+          (res/'values/pricewatch_colors.xml').write_text('''<?xml version="1.0" encoding="utf-8"?><resources><color name="pricewatch_launcher_background">#08090D</color></resources>''')
           PY
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('android/gradle.properties')
-          s=p.read_text()
-          import re
-          for k in ('newArchEnabled','bridgelessEnabled'):
-              s=re.sub(r'^'+k+r'=.*$',k+'=false',s,flags=re.M)
-          if 'newArchEnabled=' not in s: s+='\nnewArchEnabled=false\n'
-          if 'bridgelessEnabled=' not in s: s+='\nbridgelessEnabled=false\n'
-          s=re.sub(r'^reactNativeArchitectures=.*$', 'reactNativeArchitectures=arm64-v8a', s, flags=re.M)
-          if 'reactNativeArchitectures=' not in s: s+='\nreactNativeArchitectures=arm64-v8a\n'
-          p.write_text(s)
+          p=Path('android/gradle.properties'); s=p.read_text(); import re
+          s=re.sub(r'^newArchEnabled=.*$','newArchEnabled=false',s,flags=re.M); s=re.sub(r'^bridgelessEnabled=.*$','bridgelessEnabled=false',s,flags=re.M); s=re.sub(r'^reactNativeArchitectures=.*$','reactNativeArchitectures=arm64-v8a',s,flags=re.M); p.write_text(s)
           PY
       - name: Install native notifications
         run: python3 scripts/setup_notifications.py
