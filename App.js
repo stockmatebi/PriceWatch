@@ -325,6 +325,10 @@ snapshotResult.error ||
     const supplier = supplierById.get(supplierId);
     const product = products.find(item => item.id === productId);
 
+    if (manual?.dnu) {
+      return {...manual, price: null, source_type: 'dnu', checked_at: manual.updated_at};
+    }
+
     if (supplier?.name === 'Cashbuild Howick' && verifiedCashbuild && product) {
       const productName = String(product.name || '').toLowerCase();
       if (productName.includes('npc original blue')) {
@@ -383,6 +387,7 @@ snapshotResult.error ||
   const priceStatusForRow = row => getPromotionStatus(promotionForRow(row));
 
   const comparePriceStyle = row => {
+    if (row?.source_type === 'dnu') return {color: '#F5BE28', label: 'DNU', background: '#332c18'};
     if (!row || row.price == null) return {color: '#666f79', label: 'NO PRICE', background: '#181d24'};
     if (row.source_type === 'manual') return {color: '#27D9FF', label: 'MANUAL', background: '#102f38'};
     const promo = promotionForRow(row);
