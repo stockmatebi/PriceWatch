@@ -91,11 +91,46 @@ const fetchCashbuildHowickVerifiedPrices = async () => {
   if (blue == null || black == null) throw new Error('Cashbuild Howick product identity/price validation failed.');
   return {blue, black, checked_at: new Date().toISOString(), source_url: CASHBUILD_HOWICK_CEMENT_URL, source_type: 'verified_live', confidence: 1};
 };
+const parsePromotionDates = text => {
+  const source = String(text || '').replace(/\\s+/g, ' ').trim();
+  const months = {
+    january:1, february:2, march:3, april:4, may:5, june:6,
+    july:7, august:8, september:9, october:10, november:11, december:12
+  };
+  const month = '(January|February|March|April|May|June|July|August|September|October|November|December)';
+  const day = '[0-9]{1,2}(?:st|nd|rd|th)?';
+  const sep = '(?:to|through|[-–—])';
+  const patterns = [
+    new RegExp(day+'\\\\s*'+month+'\\\\s*'+sep+'\\\\s*'+day+'\\\\s*'+month+'\\\\s*,?\\\\s*([0-9]{4})', 'i'),
+    new RegExp(day+'\\\\s*'+sep+'\\\\s*'+day+'\\\\s*'+month+'\\\\s*,?\\\\s*([0-9]{4})', 'i'),
+    new RegExp(day+'\\\\s*'+month+'\\\\s*'+sep+'\\\\s*'+day+'\\\\s*'+month+'\\\\s*,?\\\\s*([0-9]{4})', 'i')
+  ];
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    if (!match) continue;
+    const raw = match[0];
+    const days = [...raw.matchAll(new RegExp(day, 'gi'))].map(x => parseInt(x[0], 10));
+    const names = [...raw.matchAll(new RegExp(month, 'gi'))].map(x => x[0].toLowerCase());
+    const yearMatch = raw.match(/([0-9]{4})(?!.*[0-9]{4})/);
+    if (days.length < 2 || !yearMatch || !names.length) continue;
+    const fromMonth = months[names[0]];
+    const untilMonth = months[names[names.length - 1]];
+    if (!fromMonth || !untilMonth) continue;
+    const pad = value => String(value).padStart(2, '0');
+    return {
+      from: `${yearMatch[1]}-${pad(fromMonth)}-${pad(days[0])}`,
+      until: `${yearMatch[1]}-${pad(untilMonth)}-${pad(days[1])}`
+    };
+  }
+  return null;
+};
+
 const getPromotionStatus = promotion => {
   if (!promotion) return null;
   const today = new Date().toISOString().slice(0, 10);
-  const from = dateKey(promotion.valid_from);
-  const until = dateKey(promotion.valid_until);
+  const parsed = parsePromotionDates(promotion.text || promotion.ai_summary || '');
+  const from = dateKey(promotion.valid_from) || parsed?.from || null;
+  const until = dateKey(promotion.valid_until) || parsed?.until || null;
 
   if (from && today < from) {
     return {key: 'outside', label: 'NOT YET VALID', color: '#ff7777', background: '#351f1f'};
