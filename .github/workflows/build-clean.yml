@@ -24,7 +24,11 @@ jobs:
           rm -rf android PriceWatchNative
           npx @react-native-community/cli@20.0.1 init PriceWatchNative --version 0.81.5 --skip-install
           rm -rf PriceWatchNative/src PriceWatchNative/App.tsx PriceWatchNative/App.js PriceWatchNative/index.js
-          cp App.js index.js app.json babel.config.js metro.config.js PriceWatchNative/
+          cp package.json App.js index.js app.json babel.config.js metro.config.js PriceWatchNative/
+          cp -R lib assets PriceWatchNative/
+          cd PriceWatchNative
+          npm install
+          cd ..
           cp -R PriceWatchNative/android ./android
           rm -rf PriceWatchNative
           python3 - <<'PY'
