@@ -1068,9 +1068,9 @@ snapshotResult.error ||
                 <TouchableOpacity key={supplier.id} style={styles.historyAllStoreRow} onPress={() => setHistorySupplierId(supplier.id)}>
                   <View style={{flex: 1}}>
                     <Text style={styles.supplierName}>{supplier.name}</Text>
-                    <Text style={styles.checked}>{row?.source_type === 'manual' ? 'MANUAL INPUT' : row?.price != null ? 'MONITORED PRICE' : 'NO PRICE RECORDED'}</Text>
+                    <Text style={styles.checked}>{row?.source_type === 'dnu' ? 'DNU · SUPPLIER DOES NOT CARRY THIS LINE' : row?.source_type === 'manual' ? 'MANUAL INPUT' : row?.price != null ? 'MONITORED PRICE' : 'NO PRICE RECORDED'}</Text>
                   </View>
-                  <Text style={[styles.historyAllStorePrice, row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text>
+                  {row?.source_type === 'dnu' ? <Text style={styles.historyDnuBadge}>DNU</Text> : <Text style={[styles.historyAllStorePrice, row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text>}
                   <Text style={styles.historyArrow}>›</Text>
                 </TouchableOpacity>
               ))}
@@ -1109,7 +1109,7 @@ snapshotResult.error ||
         </View>
         <Text style={styles.sectionTitle}>PriceWatch</Text>
         <View style={styles.supplierInfoCard}><Text style={styles.supplierInfoHeading}>MONITORED PRODUCTS</Text><Text style={styles.supplierInfoText}>Current prices and manual fallbacks for this supplier.</Text>
-          {supplierProducts.map(({product,row}) => <View key={product.id} style={styles.supplierProductRow}><View style={{flex:1,paddingRight:10}}><Text style={styles.supplierProductName}>{product.name}</Text><Text style={styles.checked}>{row?.source_type === 'manual' ? 'MANUAL INPUT' : row?.price != null ? 'MONITORED PRICE' : 'NO PRICE RECORDED'}</Text></View><Text style={[styles.supplierProductPrice,row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text></View>)}
+          {supplierProducts.map(({product,row}) => <View key={product.id} style={styles.supplierProductRow}><View style={{flex:1,paddingRight:10}}><Text style={styles.supplierProductName}>{product.name}</Text><Text style={styles.checked}>{row?.source_type === 'dnu' ? 'DNU · SUPPLIER DOES NOT CARRY THIS LINE' : row?.source_type === 'manual' ? 'MANUAL INPUT' : row?.price != null ? 'MONITORED PRICE' : 'NO PRICE RECORDED'}</Text></View>{row?.source_type === 'dnu' ? <Text style={styles.supplierDnuBadge}>DNU</Text> : <Text style={[styles.supplierProductPrice,row?.source_type === 'manual' && styles.manualPrice]}>{money(row?.price)}</Text>}</View>)}
         </View>
       </>);
     }
