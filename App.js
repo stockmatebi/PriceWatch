@@ -822,14 +822,16 @@ snapshotResult.error ||
                   <View style={styles.compareSupplierBottom}>
                     <View style={{flex: 1}}>
                       <Text style={[styles.compareSupplierPrice, {color: style.color}]}>
-                        {row?.price != null ? money(row.price) : '—'}
+                        {isDnuRow(row) ? 'DNU' : row?.price != null ? money(row.price) : '—'}
                       </Text>
                       <Text style={styles.compareChecked}>
-                        {row?.source_type === 'manual'
-                          ? 'Entered ' + timeLabel(row.checked_at)
-                          : row?.checked_at
-                            ? 'Checked ' + timeLabel(row.checked_at)
-                            : 'No price recorded'}
+                        {isDnuRow(row)
+                          ? 'Supplier does not carry this line'
+                          : row?.source_type === 'manual'
+                            ? 'Entered ' + timeLabel(row.checked_at)
+                            : row?.checked_at
+                              ? 'Checked ' + timeLabel(row.checked_at)
+                              : 'No price recorded'}
                       </Text>
                     </View>
                     {isLowest ? (
