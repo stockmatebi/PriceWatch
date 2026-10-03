@@ -365,8 +365,10 @@ snapshotResult.error ||
     const unreadIds = alerts.filter(alert => String(alert.notification_status || '').toLowerCase() !== 'read').map(alert => alert.id).filter(Boolean);
     if (!unreadIds.length) return;
     setAlerts(current => current.map(alert => unreadIds.includes(alert.id) ? {...alert, notification_status: 'read'} : alert));
-    const {error: markReadError} = await supabase.from('pw_alerts').update({notification_status: 'read'}).in('id', unreadIds);
-    if (markReadError) setAlerts(current => current.map(alert => unreadIds.includes(alert.id) ? {...alert, notification_status: 'pending'} : alert));
+    const {error: markReadError} = await supabase.rpc('mark_pw_alerts_read', {alert_ids: unreadIds});
+    if (markReadError) {
+      setAlerts(current => current.map(alert => unreadIds.includes(alert.id) ? {...alert, notification_status: 'pending'} : alert));
+    }
   };
 
   const promotionForRow = row => {
@@ -1305,7 +1307,7 @@ function NavButton({label, active, onPress}) {
 }
 
 const styles = StyleSheet.create({
-  intelligenceCard: {backgroundColor:'#12161b', borderRadius:18, padding:15, marginBottom:18, borderWidth:1, borderColor:'#242a31'},
+  intelligenceCard: {backgroundColor:'#12161b', borderRadius:18, padding:15, marginTop:4, marginBottom:20, borderWidth:1, borderColor:'#242a31'},
   intelligenceHeader: {flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:13},
   intelligenceEyebrow: {fontSize:10, fontWeight:'900', color:'#F5BE28', letterSpacing:1},
   intelligenceTitle: {fontSize:19, fontWeight:'900', color:'#fff', marginTop:3},
@@ -1329,25 +1331,25 @@ const styles = StyleSheet.create({
 
   safe: {flex: 1, backgroundColor: '#08090d'},
   container: {flex: 1, backgroundColor: '#08090d'},
-  topBar: {paddingHorizontal: 16, paddingTop: 12, paddingBottom: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#171b21'},
-  brandBlock: {flexDirection: 'row', alignItems: 'center'},
+  topBar: {paddingHorizontal: 12, paddingTop: 10, paddingBottom: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#171b21', minHeight: 82},
+  brandBlock: {flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0},
   logoMark: {width: 52, height: 52, alignItems: 'center', justifyContent: 'center', marginRight: 10},
   logoMarkImage: {width: 52, height: 52},
-  logo: {fontSize: 21, fontWeight: '900', color: '#fff', letterSpacing: 0.2},
+  logo: {fontSize: 21, fontWeight: '900', color: '#fff', letterSpacing: 0.2, flexShrink: 1},
   logoPrice: {color: '#fff'},
   logoWatch: {color: '#FF3340'},
-  topSubtitle: {fontSize: 11, color: '#8b929b', marginTop: 3, letterSpacing: 0.15},
-  headerActions: {flexDirection: 'row', alignItems: 'center', gap: 9},
+  topSubtitle: {fontSize: 10, color: '#8b929b', marginTop: 3, letterSpacing: 0.15, flexShrink: 1},
+  headerActions: {flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 6},
   alertButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center', position: 'relative'},
   bellBody: {width: 23, height: 20, borderWidth: 2, borderColor: '#eef2f5', borderRadius: 12, borderBottomLeftRadius: 7, borderBottomRightRadius: 7},
   bellClapper: {position: 'absolute', bottom: 7, width: 7, height: 3, borderRadius: 2, backgroundColor: '#eef2f5'},
   alertBadge: {position: 'absolute', top: 1, right: 1, minWidth: 17, height: 17, paddingHorizontal: 4, borderRadius: 9, backgroundColor: '#ff4545', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#121417'},
   alertBadgeText: {fontSize: 9, fontWeight: '900', color: '#fff'},
-  livePill: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#1d2127', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 7},
+  livePill: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#1d2127', borderRadius: 20, paddingHorizontal: 9, paddingVertical: 7, minWidth: 76, justifyContent: 'center'},
   statusDotSmall: {width: 7, height: 7, borderRadius: 4, backgroundColor: '#57c878', marginRight: 6},
   liveText: {fontSize: 11, fontWeight: '800', color: '#dce2e7'},
   scroll: {flex: 1},
-  content: {padding: 14, paddingBottom: 26},
+  content: {paddingHorizontal: 14, paddingTop: 18, paddingBottom: 30},
   compareBackButton: {paddingVertical: 4, marginBottom: 10},
   compareBackText: {fontSize: 12, fontWeight: '900', color: '#F5BE28'},
   compareDetailHeader: {minHeight: 118, padding: 12, borderRadius: 16, backgroundColor: '#111419', borderWidth: 1, borderColor: '#1f242c', flexDirection: 'row', alignItems: 'center', marginBottom: 10},
