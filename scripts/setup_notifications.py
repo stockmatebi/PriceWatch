@@ -63,7 +63,7 @@ object PriceWatchNotifications {
     private fun check(context: Context) {
         try {
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            val alerts = getJson("$SUPABASE_URL/rest/v1/pw_alerts?select=id,old_price,new_price,percentage_change,detected_at,source_url,alert_type&alert_type=eq.price_change&order=detected_at.desc&limit=10")
+            val alerts = getJson("$SUPABASE_URL/rest/v1/pw_alerts?select=id,old_price,new_price,percentage_change,detected_at,source_url,alert_type,notification_status&alert_type=eq.price_change&notification_status=eq.pending&order=detected_at.desc&limit=10")
             val promos = getJson("$SUPABASE_URL/rest/v1/pw_promotions?select=id,supplier_id,title,text,post_url,detected_at,is_promotion&is_promotion=eq.true&order=detected_at.desc&limit=10")
             val lastAlert = prefs.getString(LAST_ALERT, null)
             val lastPromo = prefs.getString(LAST_PROMO, null)
