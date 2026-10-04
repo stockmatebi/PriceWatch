@@ -278,7 +278,7 @@ snapshotResult.error ||
 
   useEffect(() => {
     loadData();
-    const timer = setInterval(() => loadData(), 60000);
+    const timer = setInterval(() => loadData(), 300000);
     return () => clearInterval(timer);
   }, [loadData]);
 
