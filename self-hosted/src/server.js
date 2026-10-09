@@ -77,7 +77,7 @@ app.get('/api/bootstrap', (_req, res) => safe(res, async () => {
 app.post('/api/alerts/read', (req, res) => safe(res, async () => {
   const ids = req.body?.alertIds;
   if (!Array.isArray(ids) || ids.length > 500 || ids.some(id => typeof id !== 'string')) {
-    res.status(400); throw new Error('Invalid alertIds');
+    return res.status(400).json({ error: 'Invalid alertIds' });
   }
   await pool.query("UPDATE pw_alerts SET notification_status = 'read' WHERE id = ANY($1::uuid[])", [ids]);
   return { ok: true, updated: ids.length };
@@ -87,7 +87,7 @@ app.post('/api/manual-prices', (req, res) => safe(res, async () => {
   const { supplier_id, product_id, price, notes, dnu = false } = req.body || {};
   const numericPrice = Number(price);
   if (!supplier_id || !product_id || !Number.isFinite(numericPrice) || numericPrice < 0) {
-    res.status(400); throw new Error('Invalid manual price payload');
+    return res.status(400).json({ error: 'Invalid manual price payload' });
   }
   const result = await pool.query(
     `INSERT INTO pw_manual_prices (supplier_id, product_id, price, notes, dnu, updated_at)
@@ -101,7 +101,7 @@ app.post('/api/manual-prices', (req, res) => safe(res, async () => {
 
 app.delete('/api/manual-prices', (req, res) => safe(res, async () => {
   const { supplier_id, product_id } = req.body || {};
-  if (!supplier_id || !product_id) { res.status(400); throw new Error('supplier_id and product_id are required'); }
+  if (!supplier_id || !product_id) return res.status(400).json({ error: 'supplier_id and product_id are required' });
   await pool.query('DELETE FROM pw_manual_prices WHERE supplier_id = $1::uuid AND product_id = $2::uuid', [supplier_id, product_id]);
   return { ok: true };
 }));
