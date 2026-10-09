@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pricewatch-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pricewatch
+      POSTGRES_USER: pricewatch
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in self-hosted/.env}
+      TZ: Africa/Johannesburg
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pricewatch_pgdata:/var/lib/postgresql/data
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pricewatch -d pricewatch"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: pricewatch-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://pricewatch:${POSTGRES_PASSWORD}@db:5432/pricewatch
+      HOST: 0.0.0.0
+      PORT: 8787
+    ports:
+      - "127.0.0.1:8787:8787"
+
+volumes:
+  pricewatch_pgdata:
