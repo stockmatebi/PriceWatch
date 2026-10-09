@@ -95,7 +95,7 @@ async function main() {
     await client.query('COMMIT');
     console.log('Data copy completed. Verify counts and sample records before changing the app.');
   } catch (error) {
-    try { await pool.query('ROLLBACK'); } catch {}
+    try { await client.query('ROLLBACK'); } catch {}
     console.error(error.message);
     process.exitCode = 1;
   } finally {
