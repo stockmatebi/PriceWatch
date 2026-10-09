@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import pg from 'pg';
+import { timingSafeEqual as cryptoTimingSafeEqual } from 'node:crypto';
 
 const { Pool } = pg;
 const app = express();
@@ -40,13 +41,10 @@ app.use('/api', (req, res, next) => {
 
 function timingSafeEqual(a, b) {
   // Constant-time comparison for equal-length UTF-8 strings.
-  const { timingSafeEqual: compare } = awaitlessCrypto;
   const aa = Buffer.from(a);
   const bb = Buffer.from(b);
-  return aa.length === bb.length && compare(aa, bb);
+  return aa.length === bb.length && cryptoTimingSafeEqual(aa, bb);
 }
-import { timingSafeEqual as cryptoTimingSafeEqual } from 'node:crypto';
-const awaitlessCrypto = { timingSafeEqual: cryptoTimingSafeEqual };
 
 async function rows(sql, params = []) {
   const result = await pool.query(sql, params);
